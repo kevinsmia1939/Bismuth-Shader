@@ -649,7 +649,19 @@ anisotropic_filter (Anisotropic filtering) bool false
 #    * SSAA - Super-sampling antialiasing
 #             Renders higher-resolution image of the scene, then scales down to reduce
 #             the aliasing effects. This is the slowest and the most accurate method.
-antialiasing (Antialiasing method) enum none none,fsaa,ssaa
+#
+#    * TAA - Temporal antialiasing
+#            Jitters the camera and reprojects prior shaded frames to reduce
+#            texture and edge shimmer. Requires Post Processing and float textures.
+#            Moving objects may ghost because object motion vectors are unavailable.
+#            Changing to or from TAA requires restarting the client.
+antialiasing (Antialiasing method) enum none none,fsaa,ssaa,taa
+
+#    History contribution at 60 FPS for temporal antialiasing.
+#    Larger values smooth more but respond more slowly to scene changes.
+#
+#    Requires: enable_post_processing
+taa_history_weight (TAA History Weight) float 0.9 0.0 0.98
 
 #    Defines the size of the sampling grid for FSAA and SSAA antialiasing methods.
 #    Value of 2 means taking 2x2 = 4 samples.
@@ -787,6 +799,25 @@ shadow_map_color (Colored shadows) bool false
 #    Requires: enable_dynamic_shadows, shadows_support
 shadow_soft_radius (Soft shadow radius) float 5.0 1.0 15.0
 
+#    Search nearby shadow casters to keep contact shadows sharp and increase
+#    softness with blocker distance. Uses the light angle instead of Soft shadow radius.
+#    Requires a nonzero shadow filter quality. Restart to change this setting.
+#
+#    Requires: enable_dynamic_shadows, shadows_support
+enable_contact_hardening_shadows (Contact-hardening shadows) bool false
+
+#    Angular diameter of the directional light, in degrees.
+#    Larger angles produce wider penumbras. Zero gives hard shadows.
+#
+#    Requires: enable_contact_hardening_shadows
+shadow_light_angle (Shadow light angular diameter) float 0.53 0.0 10.0
+
+#    Maximum blocker-to-receiver separation used to search and soften shadows, in nodes.
+#    Higher values cover more distant casters but can miss thin nearby casters.
+#
+#    Requires: enable_contact_hardening_shadows
+shadow_blocker_search_distance (Shadow blocker search distance) float 64.0 1.0 256.0
+
 #    Set the default tilt of Sun/Moon orbit in degrees.
 #    Games may change orbit tilt via API.
 #    Value of 0 means no tilt / vertical orbit.
@@ -798,6 +829,406 @@ shadow_sky_body_orbit_tilt (Sky Body Orbit Tilt) float 0.0 -60.0 60.0
 
 #    Enables the post processing pipeline.
 enable_post_processing (Enable Post Processing) bool true
+
+#    Trace local colored lighting and multiple diffuse bounces through loaded map nodes.
+#    Uses a worker thread and a floating-point voxel atlas on desktop OpenGL.
+#    Unknown/unloaded nodes block light. This is bounded voxel radiosity, not path tracing.
+#    Restart after changing this option.
+enable_voxel_lighting (Voxel Global Illumination and Colored Light) bool false
+
+#    Held emissive nodes and moving node/item visuals illuminate nearby terrain.
+#    Uses the node's light_source and emission color; object glow stays self illumination.
+#    Direct light can update every frame; indirect bounce follows the asynchronous solve.
+#
+#    Requires: enable_voxel_lighting
+enable_voxel_dynamic_lighting (Held and Moving Node Lights) bool true
+
+#    Update direct light from up to eight moving lamps every rendered frame.
+#    Trace map occupancy and colored transmission on the GPU; diffuse bounce stays asynchronous.
+#    Requires desktop OpenGL 3. Unsupported devices retain worker-driven direct lighting.
+#    Adds an atlas column and per-light ray traversal. Restart after changing.
+#
+#    Requires: enable_voxel_lighting, enable_voxel_dynamic_lighting
+enable_voxel_dynamic_direct (Per-Frame Moving Direct Lights) bool true
+
+#    Filter voxel lamp light, sunlight injection and diffuse bounces through glass
+#    or nodes with an authored light_transmission_color. Uses path length in nodes.
+#    Does not change gameplay light or make opaque/unknown nodes transparent.
+#
+#    Requires: enable_voxel_lighting
+enable_voxel_transmission (Colored Voxel Light Transmission) bool true
+
+#    Scatter colored node emission, diffuse bounce and held/moving lamps in volumetric fog.
+#    Reuses the voxel atlas and its visibility/transmission. Requires five texture units.
+#    Adds per-segment light sampling; moving sources can add GPU ray traversals.
+#    Restart after changing.
+#
+#    Requires: enable_voxel_lighting, enable_volumetric_fog
+enable_voxel_fog_lighting (Colored Voxel Light in Fog) bool false
+
+#    Strength of local colored in-scattering. Zero leaves existing ambient/directional fog.
+#    Does not change fog extinction or the game's directional volumetric-light strength.
+#
+#    Requires: enable_voxel_fog_lighting
+voxel_fog_strength (Colored Fog Light Strength) float 0.5 0.0 2.0
+
+#    Directional response of local fog scattering. Positive values favor looking
+#    toward a lamp; zero is isotropic, negative values favor backscattering.
+#    Moving lights use their actual direction; baked probes approximate it.
+#    Changes live; fog history resets when this value changes.
+#
+#    Requires: enable_voxel_fog_lighting
+voxel_fog_anisotropy (Local Fog Scattering Direction) float 0.0 -0.85 0.85
+
+#    Width of the local lighting volume in nodes. Larger grids cost more CPU and memory.
+#    Restart after changing.
+#
+#    Requires: enable_voxel_lighting
+voxel_lighting_size (Voxel Lighting Volume Size) enum 32 16,24,32,48
+
+#    Number of diffuse reflection bounces. More bounces increase solve time.
+#
+#    Requires: enable_voxel_lighting
+voxel_gi_bounces (Voxel GI Bounces) int 2 1 4
+
+#    Direct local-light intensity. Zero retains native monochrome artificial lighting.
+#
+#    Requires: enable_voxel_lighting
+voxel_light_strength (Colored Light Strength) float 1.0 0.0 4.0
+
+#    Reflected light intensity, including bounced sunlight and colored emissive light.
+#
+#    Requires: enable_voxel_lighting
+voxel_gi_strength (Voxel GI Strength) float 0.5 0.0 2.0
+
+#    Simulate lens shading with gentle darkening near image edges.
+#    Applies after tone mapping and before dithering; does not darken the HUD.
+#    Restart after changing this setting or its strength.
+#
+#    Requires: enable_post_processing
+enable_camera_vignette (Camera Vignette) bool false
+
+#    Maximum lens darkening at the corners.
+#
+#    Requires: enable_post_processing, enable_camera_vignette
+camera_vignette_strength (Camera Vignette Strength) float 0.2 0.0 0.75
+
+#    Blur scene color using camera movement. Desktop OpenGL only; HUD and wield stay sharp.
+#    Restart after changing. Camera cuts and long frame gaps suppress the blur.
+#
+#    Requires: enable_post_processing
+enable_camera_motion_blur (Camera motion blur) bool false
+
+#    Shutter duration in units of a 60 FPS frame; independent of render frame rate.
+#
+#    Requires: enable_camera_motion_blur
+camera_motion_blur_strength (Camera shutter duration) float 0.5 0.0 2.0
+
+#    Maximum camera blur length in output pixels.
+#
+#    Requires: enable_camera_motion_blur
+camera_motion_blur_max (Maximum camera blur) float 24.0 0.0 64.0
+
+#    Samples per blurred pixel.
+#
+#    Requires: enable_camera_motion_blur
+camera_motion_blur_samples (Camera blur samples) int 12 4 24
+
+#    Blur surfaces outside a manually chosen focus range. Desktop OpenGL only.
+#    Restart after changing. HUD and wield stay sharp.
+#
+#    Requires: enable_post_processing
+enable_camera_dof (Camera depth of field) bool false
+
+#    Camera focus distance in nodes. Changes live; there is no automatic focus tracking.
+#
+#    Requires: enable_camera_dof
+camera_dof_focus_distance (Camera focus distance) float 8.0 0.1 1000.0
+
+#    Half-width of the sharp focus range in nodes.
+#
+#    Requires: enable_camera_dof
+camera_dof_focus_range (Camera focus range) float 2.0 0.0 100.0
+
+#    Maximum defocus radius in output pixels. Zero disables defocus.
+#
+#    Requires: enable_camera_dof
+camera_dof_blur (Camera defocus radius) float 6.0 0.0 16.0
+
+#    Add height-dependent distance haze and directional sunlight scattering.
+#    Preserves the game's sky and underwater fog. Restart after changing.
+#
+#    Requires: enable_post_processing
+enable_atmosphere (Atmospheric Haze) bool false
+
+#    Atmospheric optical density per node. Zero leaves scene colors unchanged.
+#
+#    Requires: enable_post_processing, enable_atmosphere
+atmosphere_density (Atmospheric Density) float 0.003 0.0 0.1
+
+#    Render ray-marched cloud density with self shadowing and depth-aware compositing.
+#    Uses the game's cloud coverage, height, thickness, colors and wind.
+#    Requires desktop OpenGL, floating-point targets and at least five texture units.
+#    Flat cloud layers and unsupported hardware keep native clouds. Restart after changing.
+#
+#    Requires: enable_post_processing
+enable_volumetric_clouds (Volumetric Clouds) bool false
+
+#    Spatial and wind-aware temporal filtering of cloud scattering and transmission.
+#    Requires floating-point MRTs on desktop OpenGL. Restart after changing.
+#
+#    Requires: enable_volumetric_clouds
+enable_cloud_denoising (Cloud Denoising) bool false
+
+#    Cloud history contribution at 60 FPS. Changes and occlusion reject stale history.
+#    Zero disables temporal accumulation while keeping spatial filtering. Updates live.
+#
+#    Requires: enable_volumetric_clouds, enable_cloud_denoising
+cloud_history_weight (Cloud History Weight) float 0.9 0.0 0.95
+
+#    View-ray samples. Higher values improve detail at increased GPU cost. Updates live.
+#
+#    Requires: enable_post_processing, enable_volumetric_clouds
+volumetric_cloud_samples (Cloud Samples) int 32 8 64
+
+#    Moving cloud shadows on terrain, non-glowing objects and directional fog light.
+#    Requires volumetric clouds, float render targets and eight material texture units.
+#    Restart after changing.
+#
+#    Requires: enable_volumetric_clouds
+enable_cloud_shadows (Cloud Shadows) bool false
+
+#    Attenuation of directional light by clouds. Updates live; zero disables the map.
+#
+#    Requires: enable_cloud_shadows
+cloud_shadow_strength (Cloud Shadow Strength) float 0.75 0.0 1.0
+
+#    Radius of cloud-shadow coverage around the camera's light projection, in nodes.
+#    Updates live. Wider coverage reduces spatial detail at a fixed resolution.
+#
+#    Requires: enable_cloud_shadows
+cloud_shadow_distance (Cloud Shadow Distance) float 256 16 1024
+
+#    Cloud-shadow map size. Higher values increase GPU cost. Restart after changing.
+#
+#    Requires: enable_cloud_shadows
+cloud_shadow_resolution (Cloud Shadow Resolution) int 256 128 1024
+
+
+#    Maximum cloud integration distance in nodes. Updates live.
+#
+#    Requires: enable_post_processing, enable_volumetric_clouds
+volumetric_cloud_distance (Cloud Distance) float 1024 128 4096
+
+#    Cloud buffer resolution relative to the scene. Restart after changing.
+#    Depth-aware upsampling rejects foreground silhouettes.
+#
+#    Requires: enable_post_processing, enable_volumetric_clouds
+volumetric_cloud_resolution (Cloud Resolution) float 0.5 0.25 1.0
+
+#    Optical density per node, also scaled by the game's cloud color alpha. Updates live.
+#
+#    Requires: enable_post_processing, enable_volumetric_clouds
+volumetric_cloud_density (Cloud Optical Density) float 0.18 0.0 1.0
+
+#    Small-scale erosion of the cloud density. Zero gives smooth billows. Updates live.
+#
+#    Requires: enable_post_processing, enable_volumetric_clouds
+volumetric_cloud_detail (Cloud Detail) float 0.35 0.0 1.0
+
+#    Integrate height fog along view rays, including sky, with terrain/object shadowing.
+#    Replaces analytic haze. Requires desktop OpenGL; other drivers retain analytic haze.
+#    Shadowed sunlight requires dynamic shadows and the game's volumetric light strength.
+#    Restart after changing.
+#
+#    Requires: enable_post_processing, enable_atmosphere
+enable_volumetric_fog (Shadowed Volumetric Fog) bool false
+
+#    Maximum fog integration distance in nodes. Samples stop at the first visible surface.
+#
+#    Requires: enable_post_processing, enable_atmosphere, enable_volumetric_fog
+volumetric_fog_distance (Volumetric Fog Distance) float 128 16 512
+
+#    Exponential height falloff in nodes, measured above sea level.
+#
+#    Requires: enable_post_processing, enable_atmosphere, enable_volumetric_fog
+volumetric_fog_height (Volumetric Fog Height) float 64 8 512
+
+#    Spatial density variation. Zero gives smooth height fog.
+#
+#    Requires: enable_post_processing, enable_atmosphere, enable_volumetric_fog
+volumetric_fog_variation (Volumetric Fog Variation) float 0.35 0.0 1.0
+
+#    Samples per pixel. More samples improve thin shadow shafts at higher GPU cost.
+#
+#    Requires: enable_post_processing, enable_atmosphere, enable_volumetric_fog
+volumetric_fog_steps (Volumetric Fog Samples) int 24 8 64
+
+#    Filter fog scattering and RGB transmission independently of scene color.
+#    Requires desktop OpenGL float MRTs and five texture units (six with clouds/TAA).
+#    Restart after changing. Unsupported configurations retain inline fog.
+#
+#    Requires: enable_atmosphere, enable_volumetric_fog
+enable_fog_denoising (Fog Denoising) bool false
+
+#    Fog transport resolution relative to the scene. Upsampling respects terrain depth.
+#    Higher values improve thin geometry at increased GPU cost. Restart after changing.
+#
+#    Requires: enable_fog_denoising
+fog_resolution (Fog Resolution) float 0.5 0.25 1.0
+
+#    Fog history contribution at 60 FPS. Zero retains spatial filtering. Updates live.
+#
+#    Requires: enable_fog_denoising
+fog_history_weight (Fog History Weight) float 0.9 0.0 0.95
+
+#    Reflect visible terrain in water, with a sky fallback outside the screen.
+#    Requires desktop OpenGL with floating-point multiple render targets.
+#    Adds a surface buffer and ray-marching pass. Restart after changing.
+#
+#    Requires: enable_post_processing
+enable_screen_space_reflections (Water Screen-space Reflections) bool false
+
+#    Scale water reflections. Zero leaves water color unchanged by this pass.
+#
+#    Requires: enable_post_processing, enable_screen_space_reflections
+water_reflection_strength (Water Reflection Strength) float 0.8 0.0 1.0
+
+#    Refract the opaque scene behind transparent liquids with depth-dependent RGB absorption.
+#    Captures scene color/depth before transparency. Requires desktop OpenGL 3.
+#    Opaque liquids and underwater views without loaded-water geometry retain native rendering.
+#    Restart after changing.
+#
+#    Requires: enable_post_processing
+enable_water_refraction (Water Refraction and Absorption) bool false
+
+#    Use loaded node geometry for underwater RGB absorption and refracted sunlight caustics.
+#    Also limits surface refraction absorption to actual liquid segments.
+#    Uses mesh-matched sloped/waving liquid boundaries. Requires desktop OpenGL,
+#    seven texture units, RGBA32F textures and 4096-pixel texture dimensions.
+#    Restart after changing. The game's liquid fog color controls in-scattering.
+#
+#    Requires: enable_post_processing, translucent_liquids
+enable_water_volume (Water volume lighting) bool false
+
+#    Camera-local geometry cube edge in nodes. Larger cubes increase snapshot and GPU cost.
+#    Restart after changing.
+#
+#    Requires: enable_water_volume
+water_volume_size (Water geometry size) int 48 32 64
+
+#    Strength of sunlight focusing by the liquid mesh's animated waves.
+#    Zero disables caustics; underwater absorption remains enabled.
+#
+#    Requires: enable_water_volume
+water_caustics_strength (Water caustics strength) float 0.7 0.0 2.0
+
+#    Scatter colored voxel emission, bounced light and moving lamps through loaded water.
+#    Shares the lighting/geometry atlases; independent of atmosphere and air fog.
+#    Extra ray traversal increases GPU cost. Restart after changing.
+#
+#    Requires: enable_water_volume, enable_voxel_lighting
+enable_voxel_water_lighting (Colored light in water) bool false
+
+#    Colored underwater scattering strength. Zero retains native liquid-color scattering.
+#    Shares voxel_light_strength and voxel_gi_strength for direct and bounced light.
+#
+#    Requires: enable_voxel_water_lighting
+voxel_water_strength (Colored water light strength) float 0.5 0.0 2.0
+
+#    Henyey-Greenstein scattering direction: positive favors looking toward the light.
+#    Baked voxel light uses six phase-weighted lobes; moving lamps use their actual direction.
+#
+#    Requires: enable_voxel_water_lighting
+voxel_water_anisotropy (Local water scattering direction) float 0.5 -0.85 0.85
+
+#    View-ray samples for colored underwater lighting. Higher counts increase GPU cost.
+#    Water-only absorption is integrated analytically inside each segment.
+#
+#    Requires: enable_voxel_water_lighting
+voxel_water_steps (Colored water light steps) int 8 4 32
+
+#    Scale absorption through water. Zero disables attenuation but keeps refraction.
+#    Liquid texture alpha scales turbidity; the texture color supplies scattered light.
+#
+#    Requires: enable_post_processing, enable_water_refraction
+water_absorption_strength (Water Absorption Strength) float 1.0 0.0 4.0
+
+#    Maximum refraction ray length and absorption path in nodes.
+#
+#    Requires: enable_post_processing, enable_water_refraction
+water_refraction_distance (Water Refraction Distance) float 32 1 64
+
+#    Scale bending of transmitted light. Zero gives straight transmission with absorption.
+#
+#    Requires: enable_post_processing, enable_water_refraction
+water_refraction_strength (Water Refraction Strength) float 1.0 0.0 1.0
+
+#    Add material shading with authored normal and occlusion/roughness/metallic maps.
+#    Unmapped surfaces use albedo-derived bump detail and dielectric highlights.
+#    Requires desktop OpenGL; authored maps require at least six texture units.
+#    Restart after changing this setting or fallback controls; authored map strength updates live.
+enable_material_shading (Material Surface Detail) bool false
+
+#    Roughness of the dielectric sunlight highlight. Higher values look matte.
+#
+#    Requires: enable_material_shading
+material_roughness (Material Roughness) float 0.8 0.2 1.0
+
+#    Strength of texture-derived surface normals. Zero disables bump detail.
+#
+#    Requires: enable_material_shading
+material_normal_strength (Material Normal Strength) float 0.2 0.0 0.5
+
+#    Strength of authored tangent-space normal maps. Zero flattens mapped normals.
+#    Does not change the fallback derived from albedo. Updates live.
+#
+#    Requires: enable_material_shading
+material_map_normal_strength (Authored Normal Strength) float 1.0 0.0 2.0
+
+#    Approximate one bounce of diffuse light between visible opaque node surfaces.
+#    Requires desktop OpenGL with floating-point multiple render targets.
+#    Hidden surfaces cannot contribute; this is not full global illumination.
+#    Restart after changing.
+#
+#    Requires: enable_post_processing
+enable_indirect_lighting (Screen-space Indirect Lighting) bool false
+
+#    Strength of local diffuse color bounce. Zero disables added light.
+#
+#    Requires: enable_post_processing, enable_indirect_lighting
+indirect_light_strength (Indirect Light Strength) float 0.35 0.0 1.0
+
+#    Maximum distance in nodes over which visible surfaces exchange light.
+#
+#    Requires: enable_post_processing, enable_indirect_lighting
+indirect_light_radius (Indirect Light Radius) float 3.0 0.5 8.0
+
+#    Add contact shading around nearby surfaces using screen-space ambient occlusion.
+#    Costs an additional full-screen depth sampling pass. Off-screen geometry and
+#    transparent surfaces that do not write depth cannot contribute to the effect.
+#    Requires a restart to change.
+#
+#    Requires: enable_post_processing
+enable_ssao (Screen-space Ambient Occlusion) bool false
+
+#    Preserve emissive node faces and glowing/unshaded mesh/sprite objects from SSAO.
+#    Uses an R8 coverage target on desktop OpenGL 3+, with two MRT outputs (three
+#    when surface metadata is enabled). Unsupported devices retain ordinary SSAO.
+#    Restart after changing.
+#
+#    Requires: enable_post_processing, enable_ssao
+enable_ssao_emission_mask (Preserve Emissive Faces in SSAO) bool true
+
+#    Maximum distance in nodes over which nearby surfaces cast ambient shading.
+#
+#    Requires: enable_post_processing, enable_ssao
+ssao_radius (Ambient Occlusion Radius) float 0.75 0.1 4.0
+
+#    Strength of the ambient contact shading. Zero disables darkening.
+#
+#    Requires: enable_post_processing, enable_ssao
+ssao_strength (Ambient Occlusion Strength) float 1.0 0.0 2.0
 
 #    Enables Hable's 'Uncharted 2' filmic tone mapping.
 #    Simulates the tone curve of photographic film and how this approximates the
@@ -851,9 +1282,9 @@ enable_volumetric_lighting (Volumetric Lighting) bool false
 #   Requires: enable_dynamic_shadows
 enable_translucent_foliage (Translucent foliage) bool false
 
-#   When enabled, liquid reflections are simulated.
+#   Simulate liquid reflections and directional sun/moon glints.
 #
-#   Requires: enable_waving_water, enable_dynamic_shadows
+#   Requires: enable_waving_water
 enable_water_reflections (Liquid reflections) bool false
 
 [*Audio]

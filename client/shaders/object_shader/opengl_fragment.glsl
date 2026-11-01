@@ -247,6 +247,10 @@ const vec2[64] poissonDisk = vec2[64](
 
 vec4 getShadowColor(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 {
+#ifdef ENABLE_CONTACT_HARDENING_SHADOWS
+	return contactHardeningShadow(shadowsampler, smTexCoord, realDistance,
+		vec4(CameraPos.xy, xyPerspectiveBias0, xyPerspectiveBias1), f_textureresolution);
+#endif
 	float radius = getPenumbraRadius(shadowsampler, smTexCoord, realDistance);
 	if (radius < 0.1) {
 		// we are in the middle of even brightness, no need for filtering
@@ -274,6 +278,10 @@ vec4 getShadowColor(sampler2D shadowsampler, vec2 smTexCoord, float realDistance
 
 float getShadow(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 {
+#ifdef ENABLE_CONTACT_HARDENING_SHADOWS
+	return contactHardeningShadow(shadowsampler, smTexCoord, realDistance,
+		vec4(CameraPos.xy, xyPerspectiveBias0, xyPerspectiveBias1), f_textureresolution).x;
+#endif
 	float radius = getPenumbraRadius(shadowsampler, smTexCoord, realDistance);
 	if (radius < 0.1) {
 		// we are in the middle of even brightness, no need for filtering
@@ -306,6 +314,10 @@ float getShadow(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 
 vec4 getShadowColor(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 {
+#ifdef ENABLE_CONTACT_HARDENING_SHADOWS
+	return contactHardeningShadow(shadowsampler, smTexCoord, realDistance,
+		vec4(CameraPos.xy, xyPerspectiveBias0, xyPerspectiveBias1), f_textureresolution);
+#endif
 	float radius = getPenumbraRadius(shadowsampler, smTexCoord, realDistance);
 	if (radius < 0.1) {
 		// we are in the middle of even brightness, no need for filtering
@@ -334,6 +346,10 @@ vec4 getShadowColor(sampler2D shadowsampler, vec2 smTexCoord, float realDistance
 #else
 float getShadow(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 {
+#ifdef ENABLE_CONTACT_HARDENING_SHADOWS
+	return contactHardeningShadow(shadowsampler, smTexCoord, realDistance,
+		vec4(CameraPos.xy, xyPerspectiveBias0, xyPerspectiveBias1), f_textureresolution).x;
+#endif
 	float radius = getPenumbraRadius(shadowsampler, smTexCoord, realDistance);
 	if (radius < 0.1) {
 		// we are in the middle of even brightness, no need for filtering
@@ -387,6 +403,7 @@ void main(void)
 
 	vec4 col = vec4(base.rgb * varColor.rgb, 1.0);
 	col.rgb *= vIDiff;
+	vec3 cloudGeometryVisibility = vec3(1.0);
 
 #ifdef ENABLE_DYNAMIC_SHADOWS
 	if (f_shadow_strength > 0.0) {
@@ -433,6 +450,7 @@ void main(void)
 			shadow_color = mix(vec3(0.0), shadow_color, min(cosLight, self_shadow_cutoff_cosine)/self_shadow_cutoff_cosine);
 		}
 
+		cloudGeometryVisibility = vec3(1.0)-shadow_int*(vec3(1.0)-shadow_color);
 		shadow_int *= f_adj_shadow_strength;
 
 		// calculate fragment color from components:
@@ -442,6 +460,15 @@ void main(void)
 						col.rgb * (1.0 - shadow_int * (1.0 - shadow_color) * (1.0 - shadow_tint)) +  // filtered texture color
 						dayLight * shadow_color * shadow_int);                 // reflected filtered sunlight/moonlight
 	}
+#endif
+
+#ifdef ENABLE_CLOUD_SHADOWS
+	col.rgb = cloudShadeNative(col.rgb, cloudSunTransmission(worldPosition), vNormal, nightRatio, cloudGeometryVisibility);
+#endif
+
+#ifdef ENABLE_VOXEL_LIGHTING
+	col.rgb = applyVoxelLighting(col.rgb, base.rgb, worldPosition,
+		normalize(vNormal + vec3(0.0, 0.000001, 0.0)), vNormal, nightRatio, dayLight, false);
 #endif
 
 	// Due to a bug in some (older ?) graphics stacks (possibly in the glsl compiler ?),
@@ -465,4 +492,7 @@ void main(void)
 	col = vec4(col.rgb, base.a);
 
 	gl_FragColor = col;
+#ifdef ENABLE_SCENE_EMISSION_MASK
+	writeSceneEmission(col.a);
+#endif
 }

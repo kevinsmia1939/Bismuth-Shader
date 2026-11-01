@@ -225,10 +225,8 @@ const c8 *const ZWriteNames[] = {
 	};
 
 //! Maximum number of texture an SMaterial can have.
-/** SMaterial might ignore some textures in most function, like assignment and comparison,
-	when SIrrlichtCreationParameters::MaxTextureUnits is set to a lower number.
-*/
-constexpr static u32 MATERIAL_MAX_TEXTURES = 4;
+/** Drivers bind only the number of units supported by the device. */
+constexpr static u32 MATERIAL_MAX_TEXTURES = 8;
 
 //! Struct for holding parameters for a material renderer
 // Note for implementors: Serialization is in CNullDriver

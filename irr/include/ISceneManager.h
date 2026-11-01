@@ -10,6 +10,7 @@
 #include "dimension2d.h"
 #include "SColor.h"
 #include "ESceneNodeTypes.h"
+#include <functional>
 
 struct SEvent;
 
@@ -305,7 +306,9 @@ public:
 	IVideoDriver::beginScene() and IVideoDriver::endScene(). Please note that
 	the scene is not only drawn when calling this, but also animated
 	by existing scene node animators, culling of scene nodes is done, etc. */
-	virtual void drawAll() = 0;
+	/** Optional callback runs after opaque geometry and before transparent nodes.
+	It may snapshot render targets, but must restore render state before returning. */
+	virtual void drawAll(const std::function<void()> &afterSolid = {}) = 0;
 
 	//! Adds an external mesh loader for extending the engine with new file formats.
 	/** If you want the engine to be extended with

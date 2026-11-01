@@ -1,0 +1,215 @@
+// Luanti
+// SPDX-License-Identifier: LGPL-2.1-or-later
+#include "catch.h"
+#include "catch_amalgamated.hpp"
+#include "client/tile.h"
+#include "client/shader.h"
+#include "client/render/surface_light.h"
+#include "client/normal_mipmaps.h"
+#include "irr_ptr.h"
+#include <irrlicht.h>
+#include <IVideoDriver.h>
+#include <unordered_set>
+#include <limits>
+
+TEST_CASE("Normal mipmaps retain variance without renormalizing intermediate means", "[client][render][material]")
+{
+	SIrrlichtCreationParameters params;
+	params.DriverType = video::EDT_NULL;
+	irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+	REQUIRE(device);
+	auto *driver = device->getVideoDriver();
+	for (auto size : {core::dimension2du(8,8),core::dimension2du(7,3),core::dimension2du(1,9)}) {
+		irr_ptr<video::IImage> image(driver->createImage(video::ECF_A8R8G8B8,size));
+		REQUIRE(image);
+		v3f expected;
+		for (u32 y = 0; y < size.Height; ++y) for (u32 x = 0; x < size.Width; ++x) {
+			video::SColor color((x+y)%2 ? 12 : 240,(x+y)%2 ? 218 : 37,128,218);
+			image->setPixel(x,y,color);
+			v3f n(color.getRed()/127.5f-1,color.getGreen()/127.5f-1,color.getBlue()/127.5f-1);
+			expected += n.normalize();
+		}
+		expected /= float(size.getArea());
+		auto levels = normal_mipmaps::build(*image,size,true);
+		REQUIRE(levels.size() >= 3);
+		CHECK(levels.front().size == size);
+		CHECK(levels.back().size == core::dimension2du(1,1));
+		for (const auto &pixel : levels.front().pixels) CHECK(pixel.getAlpha() == 0);
+		const auto last = levels.back().pixels.front();
+		CHECK(last.getRed()/127.5f-1 == Catch::Approx(expected.X).margin(1.0/255+1e-7));
+		CHECK(last.getGreen()/127.5f-1 == Catch::Approx(expected.Y).margin(1.0/255+1e-7));
+		CHECK(last.getBlue()/127.5f-1 == Catch::Approx(expected.Z).margin(1.0/255+1e-7));
+		CHECK(last.getAlpha()/255.0f == Catch::Approx(std::sqrt(1-expected.getLengthSQ())).margin(0.5/255));
+		CHECK(image->getPixel(0,0).getAlpha() == 240); // Author alpha is untouched.
+		auto reduced = normal_mipmaps::build(*image,{1,1},false);
+		REQUIRE(reduced.size() == 1);
+		CHECK(reduced[0].pixels[0] == last);
+		CHECK(normal_mipmaps::build(*image,size,false).size() == 1);
+		for (u32 y = 0; y < size.Height; ++y) for (u32 x = 0; x < size.Width; ++x)
+			image->setPixel(x,y,{173,180,170,240});
+		for (const auto &level : normal_mipmaps::build(*image,size,true))
+			for (const auto &pixel : level.pixels) CHECK(pixel.getAlpha() == 0);
+	}
+}
+
+TEST_CASE("Normal mip uploads retain every level and restore texture flags", "[.][client][render][normal-mips]")
+{
+	for (auto type : {video::EDT_OPENGL3,video::EDT_OPENGL}) {
+		SIrrlichtCreationParameters params;
+		params.DriverType = type;
+		params.WindowSize = {64,64};
+		irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+		REQUIRE(device);
+		auto *driver = device->getVideoDriver();
+		for (bool mips : {false,true}) {
+			driver->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS,mips);
+			driver->setTextureCreationFlag(video::ETCF_OPTIMIZED_FOR_SPEED,true);
+			driver->setTextureCreationFlag(video::ETCF_NO_ALPHA_CHANNEL,true);
+			irr_ptr<video::IImage> image(driver->createImage(video::ECF_A8R8G8B8,{7,3}));
+			for (u32 y = 0; y < 3; ++y) for (u32 x = 0; x < 7; ++x)
+				image->setPixel(x,y,{255,x%2 ? 37u : 218u,128,218});
+			auto *texture = normal_mipmaps::create(*driver,mips ? "normal_mips" : "normal_base",*image);
+			REQUIRE(texture);
+			CHECK(texture->getColorFormat() == video::ECF_A8R8G8B8);
+			CHECK(driver->getTextureCreationFlag(video::ETCF_OPTIMIZED_FOR_SPEED));
+			CHECK_FALSE(driver->getTextureCreationFlag(video::ETCF_ALWAYS_32_BIT));
+			CHECK(driver->getTextureCreationFlag(video::ETCF_NO_ALPHA_CHANNEL));
+			REQUIRE(normal_mipmaps::upload(*image,*texture));
+			const auto expected = normal_mipmaps::build(*image,texture->getSize(),mips);
+			for (u32 level = 0; level < expected.size(); ++level) {
+				auto *data = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY,level));
+				REQUIRE(data);
+				for (size_t i = 0; i < expected[level].pixels.size(); ++i)
+					REQUIRE(data[i] == expected[level].pixels[i].color);
+				texture->unlock();
+			}
+			// Reload every mip, including clearing variance when detail disappears.
+			for (u32 y = 0; y < 3; ++y) for (u32 x = 0; x < 7; ++x)
+				image->setPixel(x,y,{255,128,128,255});
+			REQUIRE(normal_mipmaps::upload(*image,*texture));
+			auto *last = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY,expected.size()-1));
+			REQUIRE(last);
+			CHECK(video::SColor(last[0]).getAlpha() == 0);
+			texture->unlock();
+		}
+	}
+}
+
+TEST_CASE("Surface sunlight remains independent of shadow settings and supports sky/custom selection", "[client][render][material]")
+{
+	const v3f up(0, 1, 0), down(0, -1, 0);
+	const video::SColorf color(0.8f, 0.6f, 0.4f);
+	auto sun = surface_light::select(up, down, true, true, {}, color);
+	CHECK(sun.source == surface_light::Source::SUN);
+	CHECK(sun.direction == up);
+	CHECK(sun.strength == 1.0f);
+	CHECK(sun.color.X == Catch::Approx(std::pow(0.8f, 2.2f)));
+	CHECK(sun.color.Y == Catch::Approx(std::pow(0.6f, 2.2f)));
+	CHECK(sun.color.Z == Catch::Approx(std::pow(0.4f, 2.2f)));
+	CHECK(surface_light::select(up, down, false, true, {}, color).strength == 0);
+	auto moon = surface_light::select(down, up, true, true, {}, color);
+	CHECK(moon.source == surface_light::Source::MOON);
+	CHECK(moon.direction == up);
+	CHECK(moon.strength == 0.5f);
+	CHECK(surface_light::select(down, up, true, false, {}, color).strength == 0);
+	auto custom = surface_light::select(up, down, false, false, v3f(3, -4, 0), color);
+	CHECK(custom.source == surface_light::Source::CUSTOM);
+	CHECK(custom.strength == 1);
+	CHECK(custom.direction.X == Catch::Approx(0.6f));
+	CHECK(custom.direction.Y == Catch::Approx(-0.8f));
+	for (float scale : {1e-30f, 1e30f}) {
+		auto scaled = surface_light::select(up, down, false, false, v3f(3, 4, 0) * scale, color);
+		CHECK(scaled.strength == 1);
+		CHECK(scaled.direction.X == Catch::Approx(0.6f));
+		CHECK(scaled.direction.Y == Catch::Approx(0.8f));
+	}
+	for (float invalid : {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+		CHECK(surface_light::select(up, down, true, true, v3f(invalid, 0, 0), color).strength == 0);
+	float previous = 0;
+	for (float y : {-0.01f, 0.0f, 0.01f, 0.03f, 0.06f, 0.12f, 0.2f}) {
+		auto light = surface_light::select(v3f(1, y, 0), down, true, true, {}, color);
+		CHECK(light.strength >= previous);
+		CHECK(light.strength <= 1);
+		previous = light.strength;
+	}
+	// A complete sunset/source exchange must be continuous in emitted linear
+	// radiance, including the warm tint and weaker moon. Custom sources bypass it.
+	v3f previous_radiance;
+	for (int i = -1000; i <= 1000; ++i) {
+		const float y = i * 0.0002f;
+		auto light = surface_light::select(v3f(1, y, 0), v3f(-1, -y, 0), true, true, {}, color);
+		const v3f radiance = light.color * light.strength;
+		if (i > -1000)
+			CHECK(radiance.getDistanceFrom(previous_radiance) < 0.003f);
+		previous_radiance = radiance;
+	}
+	auto low_sun = surface_light::select(v3f(1, 0.1f, 0), down, true, true, {}, video::SColorf(1, 1, 1));
+	CHECK(low_sun.color.X > low_sun.color.Y);
+	CHECK(low_sun.color.Y > low_sun.color.Z);
+	CHECK(custom.color == sun.color); // No warm tint applied to authored lights.
+}
+
+TEST_CASE("Material map identity survives mesh grouping and animation", "[client][render][material]")
+{
+	SIrrlichtCreationParameters params;
+	params.DriverType = video::EDT_NULL;
+	irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+	REQUIRE(device);
+	auto *driver = device->getVideoDriver();
+	const auto texture = [&](const char *name) {
+		auto *result = driver->addTexture(core::dimension2du(1, 1), name, video::ECF_A8R8G8B8);
+		REQUIRE(result);
+		return result;
+	};
+	auto *base0 = texture("material_base0");
+	auto *base1 = texture("material_base1");
+	auto *normal0 = texture("material_normal0");
+	auto *normal1 = texture("material_normal1");
+	auto *orm0 = texture("material_orm0");
+	auto *orm1 = texture("material_orm1");
+	TileLayer a;
+	a.texture = base0;
+	a.texture_id = 1;
+	a.normal_texture = normal0;
+	a.material_texture = orm0;
+	auto b = a;
+	b.normal_texture = normal1;
+	auto c = a;
+	c.material_texture = orm1;
+	CHECK_FALSE(a == b);
+	CHECK_FALSE(a == c);
+	CHECK(a == TileLayer(a));
+	std::unordered_set<TileLayer> groups{a, b, c, a};
+	CHECK(groups.size() == 3);
+	video::SMaterial material;
+	a.material_flags = 0;
+	a.applyMaterialOptions(material, 0);
+	CHECK(material.getTexture(0) == base0);
+	CHECK(material.getTexture(4) == normal0);
+	CHECK(material.getTexture(5) == orm0);
+	CHECK(material.TextureLayers[4].TextureWrapU == video::ETC_CLAMP_TO_EDGE);
+	CHECK(material.TextureLayers[5].TextureWrapV == video::ETC_CLAMP_TO_EDGE);
+	std::vector<FrameSpec> frames{{1, base0, normal0, orm0}, {2, base1, normal1, orm1}};
+	AnimationInfo animation(&frames, 100);
+	animation.updateTexture(material, 0.11f);
+	CHECK(material.getTexture(0) == base1);
+	CHECK(material.getTexture(4) == normal1);
+	CHECK(material.getTexture(5) == orm1);
+	animation.updateTexture(material, 0.21f);
+	CHECK(material.getTexture(0) == base0);
+	CHECK(material.getTexture(4) == normal0);
+	CHECK(material.getTexture(5) == orm0);
+	frames[1].normal_texture = nullptr;
+	frames[1].material_texture = nullptr;
+	animation.updateTexture(material, 0.11f);
+	CHECK(material.getTexture(4) == nullptr);
+	CHECK(material.getTexture(5) == nullptr);
+	ShaderFeatures emissive;
+	emissive.emissive_surface = true;
+	ShaderConstants constants;
+	emissive.setConstants(constants);
+	CHECK(std::get<int>(constants.at("MATERIAL_EMISSIVE")) == 1);
+	ShaderConstants ordinary;
+	ShaderFeatures{}.setConstants(ordinary);
+	CHECK(ordinary.count("MATERIAL_EMISSIVE") == 0);
+}

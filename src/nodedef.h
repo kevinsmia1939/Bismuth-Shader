@@ -262,6 +262,9 @@ enum AlphaMode : u8 {
 struct TileDef
 {
 	std::string name = "";
+	// Optional data textures, transported in the ContentFeatures extension suffix.
+	std::string normal_texture;
+	std::string material_texture;
 	bool backface_culling = true; // Takes effect only in special cases
 	bool tileable_horizontal = true;
 	bool tileable_vertical = true;
@@ -358,6 +361,12 @@ struct ContentFeatures
 	bool sunlight_propagates;
 	// Amount of light the node emits
 	u8 light_source;
+	// Optional color of emitted light; scalar map lighting remains unchanged.
+	video::SColor light_source_color;
+	bool light_source_color_set;
+	// Optional one-node linear RGB transmission for client voxel transport.
+	video::SColor light_transmission_color;
+	bool light_transmission_color_set;
 
 	// --- MAP GENERATION ---
 
@@ -720,6 +729,8 @@ public:
 	// Set of all shader IDs used by leaves-like nodes
 	// (kind of a hack but is needed for dynamic shadows)
 	std::vector<u32> m_leaves_materials;
+	// Transparent liquid shader IDs eligible for opaque-scene refraction.
+	std::vector<u32> m_water_materials;
 #endif
 
 private:

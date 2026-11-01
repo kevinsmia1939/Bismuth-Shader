@@ -129,7 +129,7 @@ public:
 			const std::wstring &bottom_text = {});
 
 	void draw_scene(video::SColor skycolor, bool show_hud,
-			bool draw_wield_tool, bool draw_crosshair);
+			bool draw_wield_tool, bool draw_crosshair, v3f sun_direction, v3f sunlight);
 
 	void initialize(Client *client, Hud *hud);
 	void finalize();
@@ -151,6 +151,15 @@ public:
 	static void autosaveScreensizeAndCo(
 			const core::dimension2d<u32> initial_screen_size,
 			const bool initial_window_maximized);
+
+	static VoxelLighting *get_voxel_lighting()
+	{
+		return s_singleton && s_singleton->core ? s_singleton->core->get_voxel_lighting() : nullptr;
+	}
+	static RenderingCore *get_rendering_core()
+	{
+		return s_singleton ? s_singleton->core.get() : nullptr;
+	}
 
 	static PointerType getLastPointerType()
 	{

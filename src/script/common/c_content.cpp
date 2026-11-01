@@ -689,6 +689,8 @@ TileDef read_tiledef(lua_State *L, int index, u8 drawtype, bool special)
 		// name="default_lava.png"
 		tiledef.name.clear();
 		getstringfield(L, index, "name", tiledef.name);
+		getstringfield(L, index, "normal_texture", tiledef.normal_texture);
+		getstringfield(L, index, "material_texture", tiledef.material_texture);
 		if (getstringfield(L, index, "image", tiledef.name)) {
 			log_deprecated(L, "Field \"image\" on TileDef is deprecated, "
 					"use \"name\" instead.", 2);
@@ -759,6 +761,14 @@ void push_tiledef(lua_State *L, const TileDef &def)
 	lua_newtable(L);
 	lua_pushstring(L, def.name.c_str());
 	lua_setfield(L, -2, "name");
+	if (!def.normal_texture.empty()) {
+		lua_pushstring(L, def.normal_texture.c_str());
+		lua_setfield(L, -2, "normal_texture");
+	}
+	if (!def.material_texture.empty()) {
+		lua_pushstring(L, def.material_texture.c_str());
+		lua_setfield(L, -2, "material_texture");
+	}
 	lua_pushboolean(L, def.backface_culling);
 	lua_setfield(L, -2, "backface_culling");
 	lua_pushboolean(L, def.tileable_horizontal);
@@ -995,6 +1005,12 @@ void read_content_features(lua_State *L, ContentFeatures &f, int index)
 	getboolfield(L, index, "liquid_renewable", f.liquid_renewable);
 	f.drowning = getintfield_default(L, index,
 			"drowning", f.drowning);
+	lua_getfield(L, index, "light_source_color");
+	f.light_source_color_set = read_color(L, -1, &f.light_source_color);
+	lua_pop(L, 1);
+	lua_getfield(L, index, "light_transmission_color");
+	f.light_transmission_color_set = read_color(L, -1, &f.light_transmission_color);
+	lua_pop(L, 1);
 	// Amount of light the node emits
 	f.light_source = getintfield_default(L, index,
 			"light_source", f.light_source);
@@ -1192,6 +1208,14 @@ void push_content_features(lua_State *L, const ContentFeatures &c)
 	lua_setfield(L, -2, "sunlight_propagates");
 	lua_pushnumber(L, c.light_source);
 	lua_setfield(L, -2, "light_source");
+	if (c.light_source_color_set) {
+		push_ARGB8(L, c.light_source_color);
+		lua_setfield(L, -2, "light_source_color");
+	}
+	if (c.light_transmission_color_set) {
+		push_ARGB8(L, c.light_transmission_color);
+		lua_setfield(L, -2, "light_transmission_color");
+	}
 	lua_pushboolean(L, c.is_ground_content);
 	lua_setfield(L, -2, "is_ground_content");
 	lua_pushboolean(L, c.walkable);

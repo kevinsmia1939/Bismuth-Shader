@@ -1,0 +1,85 @@
+{
+  "game": "voxelibre",
+  "scenes": [
+    {
+      "evidence": {
+        "biome": "BirchForest",
+        "floor": "mcl_core:dirt_with_grass",
+        "leaves": 21386
+      },
+      "id": "forest",
+      "pitch": 0.08,
+      "pos": {
+        "x": -256,
+        "y": 16,
+        "z": -256
+      },
+      "timeofday": 0.5,
+      "yaw": -2.356194490192345
+    },
+    {
+      "evidence": {
+        "banks_within": 32,
+        "channel_noise": 0.032700881361961365,
+        "surface": {
+          "x": -343,
+          "y": 1,
+          "z": 781
+        },
+        "water": "mcl_core:water_source"
+      },
+      "id": "sunset_river",
+      "pitch": 0.5,
+      "pos": {
+        "x": -343,
+        "y": 6,
+        "z": 771
+      },
+      "timeofday": 0.78,
+      "yaw": 0
+    },
+    {
+      "evidence": {
+        "floor": "mcl_core:stone",
+        "lamp": {
+          "x": -242,
+          "y": -23,
+          "z": -252
+        },
+        "lamp_name": "mcl_nether:glowstone",
+        "open_distance": 12
+      },
+      "id": "glowing_cave",
+      "pitch": 0,
+      "pos": {
+        "x": -245,
+        "y": -23,
+        "z": -252
+      },
+      "timeofday": 0,
+      "yaw": -1.5707963267948966
+    },
+    {
+      "evidence": {
+        "depth": 5,
+        "surface": {
+          "x": -343,
+          "y": 1,
+          "z": 781
+        },
+        "water": "mcl_core:water_source"
+      },
+      "id": "underwater",
+      "pitch": 0.12,
+      "pos": {
+        "x": -343,
+        "y": -3,
+        "z": 781
+      },
+      "timeofday": 0.5,
+      "yaw": 0
+    }
+  ],
+  "seed": "13371337",
+  "version": 1
+}

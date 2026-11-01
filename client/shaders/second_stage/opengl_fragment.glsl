@@ -146,6 +146,14 @@ void main(void)
 		color.rgb = applySaturation(color.rgb, saturation);
 	}
 
+#ifdef ENABLE_CAMERA_VIGNETTE
+	// Lens shading is applied after tone/color grading, before output dithering.
+	// HUD and wielded items are rendered outside this scene-camera pass.
+	vec2 lens = uv - 0.5;
+	float lensRadius = dot(lens, lens) * 2.0;
+	color.rgb *= 1.0 - CAMERA_VIGNETTE_STRENGTH * smoothstep(0.1, 1.0, lensRadius);
+#endif
+
 #ifdef ENABLE_DITHERING
 	// Apply dithering just before quantisation
 	color.rgb += screen_space_dither(gl_FragCoord.xy);

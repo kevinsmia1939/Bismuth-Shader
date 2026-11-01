@@ -154,6 +154,7 @@ public:
 	void testSurroundedNode();
 	void testInterliquidSame();
 	void testInterliquidDifferent();
+	void testFlowingWaterTriangles();
 };
 
 static TestMapblockMeshGenerator g_test_instance;
@@ -165,6 +166,48 @@ void TestMapblockMeshGenerator::runTests(IGameDef *gamedef)
 	TEST(testSurroundedNode);
 	TEST(testInterliquidSame);
 	TEST(testInterliquidDifferent);
+	TEST(testFlowingWaterTriangles);
+}
+
+void TestMapblockMeshGenerator::testFlowingWaterTriangles()
+{
+	MockGameDef gamedef;
+	gamedef.addLiquidSource("water", 41);
+	const auto flow = gamedef.addLiquidFlowing("water", 42, 43);
+	gamedef.node_mgr()->applyFunction([](ContentFeatures &f) {
+		if (f.name == "test:water_flowing") f.waving = 3;
+	});
+	gamedef.finalize();
+	for (bool smooth : {false, true}) {
+		auto data = gamedef.makeSingleNodeMMD(smooth);
+		data.m_enable_waving_water = true;
+		for (int z = -1; z <= 1; ++z) for (int x = -1; x <= 1; ++x)
+			data.m_vmanip.setNode({s16(x), 0, s16(z)}, {flow, 0, u8(x+2*z+3)});
+		MeshCollector collector{{}};
+		MapblockMeshGenerator generator{&data, &collector};
+		generator.generate();
+		bool found = false;
+		for (const auto &buffers : collector.prebuffers) for (const auto &buffer : buffers) {
+			if (buffer.layer.texture_id != 42) continue;
+			found = true;
+			UASSERTEQ(std::size_t, buffer.vertices.size(), 8);
+			UASSERTEQ(std::size_t, buffer.indices.size(), 12);
+			// Actual generated top corners, in the mesh's clockwise order. The
+			// independent expected heights come from the four adjacent flow levels.
+			const float top_y[] = {0.0f, 1.25f, -1.25f, -2.5f};
+			for (int i = 0; i < 4; ++i) {
+				UASSERTEQ(float, buffer.vertices[i].Pos.Y, top_y[i]);
+				UASSERTEQ(float, buffer.vertices[4+i].Pos.Y, -BS/2);
+				UASSERTEQ(v3f, buffer.vertices[4+i].Normal, v3f(0, -1, 0));
+			}
+			// Reversed winding on the bottom, but the same X/Z diagonal as the
+			// top. Otherwise animated bottom waves disagree with optical geometry.
+			const u16 indices[] = {0, 1, 2, 2, 3, 0, 4, 5, 7, 7, 5, 6};
+			for (int i = 0; i < 12; ++i)
+				UASSERTEQ(u16, buffer.indices[i], indices[i]);
+		}
+		UASSERT(found);
+	}
 }
 
 namespace quad {

@@ -388,6 +388,36 @@ public:
 		LockLayer = 0;
 	}
 
+	bool updateRegion(core::vector2d<u32> position, core::dimension2du size,
+			const void *data) override
+	{
+		if (!data || !size.Width || !size.Height || Type != ETT_2D ||
+				IsRenderTarget || HasMipMaps || LockImage || !Images.empty() ||
+				IImage::isCompressedFormat(ColorFormat) ||
+				position.X >= Size.Width || position.Y >= Size.Height ||
+				size.Width > Size.Width - position.X || size.Height > Size.Height - position.Y)
+			return false;
+
+		std::vector<u8> converted;
+		if (Converter) {
+			converted.resize(IImage::getDataSizeFromFormat(ColorFormat, size.Width, size.Height));
+			Converter(data, size.getArea(), converted.data());
+			data = converted.data();
+		}
+		auto &cache = Driver->getCacheHandler()->getTextureCache();
+		const COpenGLCoreTexture *previous = cache.get(0);
+		cache.set(0, this);
+		GLint alignment;
+		GL.GetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
+		GL.PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		GL.TexSubImage2D(TextureType, 0, position.X, position.Y,
+			size.Width, size.Height, PixelFormat, PixelType, data);
+		GL.PixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+		TEST_GL_ERROR(Driver);
+		cache.set(0, previous);
+		return true;
+	}
+
 	void regenerateMipMapLevels() override
 	{
 		if (!HasMipMaps || (Size.Width <= 1 && Size.Height <= 1))

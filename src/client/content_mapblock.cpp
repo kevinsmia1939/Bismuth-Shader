@@ -720,6 +720,12 @@ void MapblockMeshGenerator::drawSolidNode()
 				if (!cur_node.f->light_source)
 					applyFacesShading(vertex.Color, vertex.Normal);
 			}
+			if constexpr (LIQUID) {
+				// Match the two source-water boundary triangles in the volume
+				// shader. The bottom face has the reverse X/Z vertex ordering.
+				if (cur_node.f->waving == 3 && data->m_enable_waving_water && face < 2)
+					return face == 0 ? QuadDiagonal::Diag02 : QuadDiagonal::Diag13;
+			}
 			return getSmoothLightingQuadDiagonal(face_lights);
 		});
 	} else {
@@ -730,6 +736,10 @@ void MapblockMeshGenerator::drawSolidNode()
 			for (int j = 0; j < 4; j++) {
 				video::S3DVertex &vertex = vertices[j];
 				vertex.Color = color;
+			}
+			if constexpr (LIQUID) {
+				if (cur_node.f->waving == 3 && data->m_enable_waving_water && face == 1)
+					return QuadDiagonal::Diag13;
 			}
 			return QuadDiagonal::Diag02;
 		});
@@ -822,34 +832,10 @@ void MapblockMeshGenerator::getLiquidNeighborhood()
 		LiquidData::NeighborData &neighbor = cur_liquid.neighbors[w + 1][u + 1];
 		v3s16 p2 = cur_node.p + v3s16(u, 0, w);
 		MapNode n2 = data->m_vmanip.getNodeRefUnsafeCheckFlags(blockpos_nodes + p2);
-		neighbor.content = n2.getContent();
-		neighbor.level = -0.5f;
-		neighbor.is_same_liquid = false;
-		neighbor.top_is_same_liquid = false;
-
-		if (neighbor.content == CONTENT_IGNORE)
-			continue;
-
-		if (neighbor.content == cur_liquid.c_source) {
-			neighbor.is_same_liquid = true;
-			neighbor.level = 0.5f;
-		} else if (neighbor.content == cur_liquid.c_flowing) {
-			neighbor.is_same_liquid = true;
-			u8 liquid_level = (n2.param2 & LIQUID_LEVEL_MASK);
-			if (liquid_level <= LIQUID_LEVEL_MAX + 1 - range)
-				liquid_level = 0;
-			else
-				liquid_level -= (LIQUID_LEVEL_MAX + 1 - range);
-			neighbor.level = (-0.5f + (liquid_level + 0.5f) / range);
-		}
-
-		// Check node above neighbor.
-		// NOTE: This doesn't get executed if neighbor
-		//       doesn't exist
-		p2.Y++;
-		n2 = data->m_vmanip.getNodeRefUnsafeCheckFlags(blockpos_nodes + p2);
-		if (n2.getContent() == cur_liquid.c_source || n2.getContent() == cur_liquid.c_flowing)
-			neighbor.top_is_same_liquid = true;
+		MapNode above(CONTENT_IGNORE);
+		if (n2.getContent() != CONTENT_IGNORE)
+			above = data->m_vmanip.getNodeRefUnsafeCheckFlags(blockpos_nodes + p2 + v3s16(0, 1, 0));
+		neighbor = LiquidGeometry::neighbor(n2, above, cur_liquid.c_source, cur_liquid.c_flowing, range);
 	}
 }
 
@@ -862,35 +848,7 @@ void MapblockMeshGenerator::calculateCornerLevels()
 
 f32 MapblockMeshGenerator::getCornerLevel(int i, int k) const
 {
-	float sum = 0;
-	int count = 0;
-	int air_count = 0;
-	for (int dk = 0; dk < 2; dk++)
-	for (int di = 0; di < 2; di++) {
-		const LiquidData::NeighborData &neighbor_data = cur_liquid.neighbors[k + dk][i + di];
-		content_t content = neighbor_data.content;
-
-		// If top is liquid, draw starting from top of node
-		if (neighbor_data.top_is_same_liquid)
-			return 0.5f;
-
-		// Source always has the full height
-		if (content == cur_liquid.c_source)
-			return 0.5f;
-
-		// Flowing liquid has level information
-		if (content == cur_liquid.c_flowing) {
-			sum += neighbor_data.level;
-			count++;
-		} else if (content == CONTENT_AIR) {
-			air_count++;
-		}
-	}
-	if (air_count >= 2)
-		return -0.5f + 0.2f / BS;
-	if (count > 0)
-		return sum / count;
-	return 0;
+	return LiquidGeometry::cornerLevel(cur_liquid.neighbors, i, k, cur_liquid.c_source, cur_liquid.c_flowing);
 }
 
 namespace {
@@ -1053,10 +1011,10 @@ void MapblockMeshGenerator::drawLiquidTop()
 void MapblockMeshGenerator::drawLiquidBottom()
 {
 	video::S3DVertex vertices[4] = {
-		video::S3DVertex(-BS / 2, -BS / 2, -BS / 2, 0, 0, 0, cur_liquid.color_top, 0, 0),
-		video::S3DVertex( BS / 2, -BS / 2, -BS / 2, 0, 0, 0, cur_liquid.color_top, 1, 0),
-		video::S3DVertex( BS / 2, -BS / 2,  BS / 2, 0, 0, 0, cur_liquid.color_top, 1, 1),
-		video::S3DVertex(-BS / 2, -BS / 2,  BS / 2, 0, 0, 0, cur_liquid.color_top, 0, 1),
+		video::S3DVertex(-BS / 2, -BS / 2, -BS / 2, 0, -1, 0, cur_liquid.color_top, 0, 0),
+		video::S3DVertex( BS / 2, -BS / 2, -BS / 2, 0, -1, 0, cur_liquid.color_top, 1, 0),
+		video::S3DVertex( BS / 2, -BS / 2,  BS / 2, 0, -1, 0, cur_liquid.color_top, 1, 1),
+		video::S3DVertex(-BS / 2, -BS / 2,  BS / 2, 0, -1, 0, cur_liquid.color_top, 0, 1),
 	};
 
 	for (int i = 0; i < 4; i++) {
@@ -1065,7 +1023,10 @@ void MapblockMeshGenerator::drawLiquidBottom()
 		vertices[i].Pos += cur_node.origin;
 	}
 
-	collector->append(cur_liquid.tile_top, vertices, 4, quad_indices, 6);
+	// Use the same X/Z diagonal as the top face when waves displace the bottom.
+	const auto *indices = cur_node.f->waving == 3 && data->m_enable_waving_water ?
+		quad_indices_13 : quad_indices_02;
+	collector->append(cur_liquid.tile_top, vertices, 4, indices, 6);
 }
 
 void MapblockMeshGenerator::drawLiquidNode()

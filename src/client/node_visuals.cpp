@@ -8,12 +8,16 @@
 #include "shader.h"
 #include "client.h"
 #include "renderingengine.h"
+#include "render/cloud_shadows.h"
+#include "render/voxel_lighting.h"
 #include "texturesource.h"
+#include "texturepaths.h"
 #include "wieldmesh.h" // createAnimationFrames
 #include "tile.h"
 #include <IMeshManipulator.h>
 #include <SMesh.h>
 #include <SkinnedMesh.h>
+#include <sstream>
 
 struct TileAttribContext {
 	ITextureSource *tsrc;
@@ -159,6 +163,47 @@ static void fillTileAttribs(TileLayer *layer, TileAttribContext context,
 			layer->texture_id = tex.texture_id;
 			layer->texture_layer_idx = tex.texture_layer_idx;
 		}
+	}
+	// Data textures use the same UVs/frame timing as albedo, without color/alpha cleanup.
+	if (useMaterialMaps() && (material_type == TILE_MATERIAL_BASIC ||
+			material_type == TILE_MATERIAL_ALPHA || material_type == TILE_MATERIAL_OPAQUE)) {
+		const auto load_map = [&](const std::string &explicit_name, const char *suffix,
+				bool normal) {
+			std::string name = explicit_name;
+			if (name.empty() && tiledef.name.find_first_of("^[()") == std::string::npos) {
+				const auto dot = tiledef.name.rfind('.');
+				if (dot != std::string::npos) {
+					auto companion = tiledef.name.substr(0, dot) + suffix + tiledef.name.substr(dot);
+					// Server media may use "_normal" for an ordinary color variant.
+					// Automatic companions come from local packs; games declare maps explicitly.
+					if (!getTexturePath(companion).empty())
+						name = std::move(companion);
+				}
+			}
+			if (name.empty())
+				return;
+			int frame_length;
+			auto maps = createAnimationFrames(tsrc, name, tiledef.animation, frame_length, false, normal);
+			if (maps.empty())
+				return;
+			if (!normal)
+				layer->diffuse_fraction = 1.0f -
+					tsrc->getTextureAverageColor(name + "^[noalpha").getBlue() / 255.0f;
+			const size_t frames = layer->frames ? layer->frames->size() : 1;
+			if (maps.size() != 1 && maps.size() != frames)
+				warningstream << "Material map " << name << " has " << maps.size()
+					<< " frames; expected 1 or " << frames << ". Using its first frame." << std::endl;
+			(normal ? layer->normal_texture : layer->material_texture) = maps[0].texture;
+			if (layer->frames) {
+				for (size_t i = 0; i < frames; ++i) {
+					auto *texture = maps[maps.size() == frames ? i : 0].texture;
+					auto &frame = (*layer->frames)[i];
+					(normal ? frame.normal_texture : frame.material_texture) = texture;
+				}
+			}
+		};
+		load_map(tiledef.normal_texture, "_normal", true);
+		load_map(tiledef.material_texture, "_orm", false);
 	}
 
 	// Decide on shader to use
@@ -363,9 +408,12 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 		break;
 	}
 
+	const bool preserve_emission = f.light_source &&
+		(useMaterialMaps() || useSceneEmissionMask() || useCloudShadows() || voxelLightingEnabled());
 	GetShaderCallback tile_shader = [&] (bool array_texture) {
 		ShaderFeatures features;
 		features.array_texture = array_texture;
+		features.emissive_surface = preserve_emission;
 		return shdsrc->getShader("nodes_shader", material_type, drawtype, features);
 	};
 
@@ -374,18 +422,33 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 	GetShaderCallback overlay_shader = [&] (bool array_texture) {
 		ShaderFeatures features;
 		features.array_texture = array_texture;
+		features.emissive_surface = preserve_emission;
 		return shdsrc->getShader("nodes_shader", overlay_material, drawtype, features);
 	};
 
 	// minimap pixel color = average color of top tile
-	if (tsettings.enable_minimap && drawtype != NDT_AIRLIKE && !tdef[0].name.empty())
+	if ((tsettings.enable_minimap || g_settings->getBool("enable_voxel_lighting")) && drawtype != NDT_AIRLIKE && !tdef[0].name.empty())
 	{
+		// Sampling a tall animation strip on the average-color helper's small
+		// grid can alias onto the same neutral rows in every frame (e.g. a torch
+		// stem), losing its hue. Use a representative frame at tile resolution.
+		const auto representative = [&](const TileDef &tile) {
+			std::ostringstream image;
+			image << tile.name;
+			if (tile.animation.type != TAT_NONE) {
+				const auto size = tsrc->getTextureDimensions(tile.name);
+				if (size.Width && size.Height)
+					tile.animation.getTextureModifer(image, size, 0);
+			}
+			return image.str();
+		};
+		const auto base = representative(tdef[0]);
 		if (!tdef_overlay[0].name.empty()) {
 			// Merge overlay and base texture
-			std::string combined = tdef[0].name + "^(" + tdef_overlay[0].name + ")";
+			std::string combined = base + "^(" + representative(tdef_overlay[0]) + ")";
 			minimap_color = tsrc->getTextureAverageColor(combined);
 		} else {
-			minimap_color = tsrc->getTextureAverageColor(tdef[0].name);
+			minimap_color = tsrc->getTextureAverageColor(base);
 		}
 	}
 
@@ -429,6 +492,7 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 	GetShaderCallback special_shader = [&] (bool array_texture) {
 		ShaderFeatures features;
 		features.array_texture = array_texture;
+		features.emissive_surface = preserve_emission;
 		return shdsrc->getShader("nodes_shader", special_material, drawtype, features);
 	};
 
@@ -523,6 +587,7 @@ void NodeVisuals::fillNodeVisuals(NodeDefManager *ndef, Client *client, void *pr
 	ITextureSource *tsrc = client->tsrc();
 	IShaderSource *shdsrc = client->getShaderSource();
 	TextureSettings tsettings;
+	ndef->m_water_materials.clear();
 	tsettings.readSettings();
 
 	tsrc->setImageCaching(true);
@@ -601,6 +666,19 @@ void NodeVisuals::fillNodeVisuals(NodeDefManager *ndef, Client *client, void *pr
 
 		if (f.drawtype != NDT_AIRLIKE)
 			v->collectMaterials(ndef->m_leaves_materials);
+		if (f.drawtype == NDT_LIQUID || f.drawtype == NDT_FLOWINGLIQUID) {
+			const auto collect_water = [&](const TileSpec &tile) {
+				for (const auto &layer : tile.layers) {
+					if (!layer.empty() && (layer.material_type == TILE_MATERIAL_LIQUID_TRANSPARENT ||
+							layer.material_type == TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT))
+						ndef->m_water_materials.push_back(layer.shader_id);
+				}
+			};
+			for (const auto &tile : v->tiles)
+				collect_water(tile);
+			for (const auto &tile : v->special_tiles)
+				collect_water(tile);
+		}
 
 		client->showUpdateProgressTexture(progress_callback_args,
 				0.66666f + 0.33333f * progress / size);
@@ -608,6 +686,7 @@ void NodeVisuals::fillNodeVisuals(NodeDefManager *ndef, Client *client, void *pr
 	});
 
 	SORT_AND_UNIQUE(ndef->m_leaves_materials);
+	SORT_AND_UNIQUE(ndef->m_water_materials);
 	verbosestream << "m_leaves_materials.size() = " << ndef->m_leaves_materials.size()
 		<< std::endl;
 

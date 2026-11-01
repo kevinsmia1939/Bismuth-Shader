@@ -452,7 +452,7 @@ void CSceneManager::clearAllRegisteredNodesForRendering()
 
 //! This method is called just before the rendering process of the whole scene.
 //! draws all scene nodes
-void CSceneManager::drawAll()
+void CSceneManager::drawAll(const std::function<void()> &afterSolid)
 {
 	if (!Driver)
 		return;
@@ -522,6 +522,9 @@ void CSceneManager::drawAll()
 
 		SolidNodeList.clear();
 	}
+
+	if (afterSolid)
+		afterSolid();
 
 	// render transparent objects.
 	{

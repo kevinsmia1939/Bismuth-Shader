@@ -7,6 +7,7 @@
 #include "IReferenceCounted.h"
 #include "SColor.h"
 #include "dimension2d.h"
+#include "vector2d.h"
 #include "EDriverTypes.h"
 #include "path.h"
 
@@ -185,6 +186,14 @@ public:
 	The last locked mip level will be unlocked.
 	You may want to call regenerateMipMapLevels() after this when you changed any data.	*/
 	virtual void unlock() = 0;
+
+	//! Optionally replace a region of a non-mipmapped 2D texture without readback.
+	/** Data is tightly packed in this texture's color format, with rows in the
+	 same order as an ordinary texture upload. Render targets, compressed textures,
+	 locked textures and retained CPU copies may be unsupported. Returns false
+	 without changing the texture when unsupported or the region is invalid. */
+	virtual bool updateRegion(core::vector2d<u32> position, core::dimension2du size,
+			const void *data) { return false; }
 
 	//! Regenerates the mip map levels of the texture. */
 	virtual void regenerateMipMapLevels() = 0;

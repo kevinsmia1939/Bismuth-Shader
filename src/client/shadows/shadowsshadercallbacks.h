@@ -18,6 +18,8 @@ class ShadowUniformSetter : public IShaderUniformSetter
 	CachedPixelShaderSetting<f32, 3> m_shadow_tint{ "shadow_tint" };
 	CachedPixelShaderSetting<f32> m_time_of_day{"f_timeofday"};
 	CachedPixelShaderSetting<f32> m_shadowfar{"f_shadowfar"};
+	CachedPixelShaderSetting<f32, 2> m_pcss_scale{"shadowPcssScale"};
+	CachedPixelShaderSetting<f32, 2> m_pcss_params{"shadowPcssParams"};
 	CachedPixelShaderSetting<f32, 4> m_camera_pos{"CameraPos"};
 	CachedPixelShaderSetting<s32> m_shadow_texture{"ShadowMapSampler"};
 	CachedVertexShaderSetting<f32>
@@ -31,12 +33,16 @@ class ShadowUniformSetter : public IShaderUniformSetter
 	CachedVertexShaderSetting<f32>
 		m_perspective_zbias_vertex{"zPerspectiveBias"};
 	CachedPixelShaderSetting<f32> m_perspective_zbias_pixel{"zPerspectiveBias"};
+	bool m_contact_hardening;
+	video::ITexture *m_bound_shadow_map = nullptr;
+	bool m_reported_bound_map = false;
 
 public:
-	ShadowUniformSetter() = default;
+	explicit ShadowUniformSetter(bool supports_contact_hardening);
 	~ShadowUniformSetter() = default;
 
 	virtual void onSetUniforms(video::IMaterialRendererServices *services) override;
+	void onSetMaterial(const video::SMaterial &material) override;
 };
 
 class ShadowUniformSetterFactory : public IShaderUniformSetterFactory
@@ -45,7 +51,7 @@ public:
 	virtual IShaderUniformSetter *create(const std::string &name) {
 		if (str_starts_with(name, "shadow/"))
 			return nullptr;
-		return new ShadowUniformSetter();
+		return new ShadowUniformSetter(name == "nodes_shader" || name == "object_shader");
 	}
 };
 

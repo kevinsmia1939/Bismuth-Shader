@@ -258,7 +258,9 @@ void DynamicTarget::activate(PipelineContext &context)
 void ScreenTarget::reset(PipelineContext &context)
 {
 	RenderTarget::reset(context);
-	size = context.device->getVideoDriver()->getScreenSize();
+	// Offscreen passes may temporarily call OnResize for their viewport. The
+	// frame context retains the actual window size across those activations.
+	size = context.target_size;
 }
 
 SetRenderTargetStep::SetRenderTargetStep(RenderStep *_step, RenderTarget *_target)

@@ -1,0 +1,76 @@
+{
+  "profile": "quality",
+  "repeat": 1,
+  "config_sha256": "2e50cb033ed310b5cd088c221a1a9d34e9db1b8f7447ae4e243cc0752bc0d228",
+  "profile_sha256": "0b692ae1c651803c13e6e122360d9efc12e4cb990eb30d22ecbc05f6e8e3e33c",
+  "scene_manifest_sha256": "2420e7e11b9ce159cefb7743768453b4f6dee9c83a405fbc2b7ccd0f7d13f5ca",
+  "fixture_sha256": "366f61a933db423ff120dabcdb7d73f39807c7894ccc3da758f2a07a17cb6a28",
+  "overrides": [],
+  "scenes": null,
+  "binary_sha256": "c97c73d85343fbf9e4ea8af357773744642d1647fd3a0359d5c1b674c70e1001",
+  "shader_sha256": "578062cf985160d75bba3087a0821f5bab6ca0ba0e80480dd77b14b484de3549",
+  "results": [
+    {
+      "scene": "forest",
+      "frames": 354,
+      "seconds": 19.936601009300002,
+      "fps": 17.75628653223619,
+      "median_ms": 55.581999945,
+      "p95_ms": 61.472150868499995,
+      "p99_ms": 64.6219711734,
+      "mean_draw_cpu_ms": 55.6671186440678,
+      "mean_drawcalls": 176.135593220339,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "sunset_river",
+      "frames": 168,
+      "seconds": 19.941932029799997,
+      "fps": 8.424459563343769,
+      "median_ms": 119.2175001,
+      "p95_ms": 122.925948735,
+      "p99_ms": 123.75391117600002,
+      "mean_draw_cpu_ms": 117.97941666666668,
+      "mean_drawcalls": 220.4404761904762,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "glowing_cave",
+      "frames": 550,
+      "seconds": 19.944089952829998,
+      "fps": 27.57709182523803,
+      "median_ms": 35.538500174999996,
+      "p95_ms": 40.079499595499996,
+      "p99_ms": 41.503479143599996,
+      "mean_draw_cpu_ms": 35.62010545454546,
+      "mean_drawcalls": 77.16727272727273,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "underwater",
+      "frames": 114,
+      "seconds": 19.920063957,
+      "fps": 5.722873191877473,
+      "median_ms": 174.680002,
+      "p95_ms": 181.787251705,
+      "p99_ms": 183.429897978,
+      "mean_draw_cpu_ms": 173.71308771929824,
+      "mean_drawcalls": 221.49122807017545,
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "gpu_before": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 55, 345 MHz, 405 MHz, 4.01 W",
+  "gpu_after": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 70, 645 MHz, 810 MHz, 12.66 W",
+  "driver_environment": {
+    "DISPLAY": ":0",
+    "WAYLAND_DISPLAY": "wayland-1",
+    "SDL_VIDEODRIVER": null,
+    "LIBGL_ALWAYS_SOFTWARE": null,
+    "__NV_PRIME_RENDER_OFFLOAD": null,
+    "__GL_SYNC_TO_VBLANK": null
+  }
+}

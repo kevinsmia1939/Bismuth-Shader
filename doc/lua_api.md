@@ -10506,6 +10506,24 @@ Tile definition
 * `{name="image.png", color=ColorSpec}`
     * the texture's color will be multiplied with this color.
     * the tile's color overrides the owning node's color in all cases.
+* `{name="image.png", normal_texture="image_normal.png", material_texture="image_orm.png"}`
+    * Optional authored material inputs for solid/alpha node surfaces when the
+      client's `enable_material_shading` is enabled on supported desktop OpenGL.
+    * `normal_texture`: tangent-space RGB normal, with positive X along U,
+      positive Y along V and positive Z out of the surface. Neutral is approximately
+      `(128,128,255)`. Alpha is ignored.
+    * `material_texture`: linear data, R = ambient occlusion, G = perceptual
+      roughness, B = metallic fraction. Alpha is ignored. White R is unoccluded;
+      B = 0 is dielectric and B = 255 is metallic.
+    * Maps follow tile UVs, tiling and animation. Supply one static frame or the
+      same frame count/layout as albedo. Mismatched animation uses the first map
+      frame and logs a warning.
+    * For simple image names, omitted maps may be discovered as `_normal` and
+      `_orm` companions before the extension in a client texture pack.
+      Game-supplied maps need explicit fields, avoiding ordinary `_normal` color variants.
+      Explicit fields take priority. Composite texture strings need explicit maps.
+    * Unsupported/disabled clients retain native material behavior. These maps
+      do not alter collision, gameplay light levels or liquid rendering.
 * deprecated, yet still supported field names:
     * `image` (name)
 
@@ -10644,6 +10662,23 @@ Used by `core.register_node`, `core.register_craftitem`, and
     -- To set the maximum (14), use the value 'core.LIGHT_MAX'.
     -- A value outside the range 0 to core.LIGHT_MAX causes undefined
     -- behavior.
+
+    light_transmission_color = nil,
+    -- Node definitions only: optional ColorSpec for linear RGB transmittance
+    -- through one node of material in the client voxel-lighting renderer.
+    -- Channel values / 255 are linear transmission, not gamma-decoded color.
+    -- Alpha is ignored. White is clear; black absorbs all three channels.
+    -- Requires a light-propagating node and enable_voxel_transmission.
+    -- nil infers a filter for glass drawtypes; other nodes remain clear.
+    -- Thickness and slanted paths compound attenuation (Beer-Lambert).
+    -- Does not change scalar gameplay lighting, collision, or rendered opacity.
+
+    light_source_color = nil,
+    -- Node definitions only: optional ColorSpec for emitted RGB light.
+    -- Used by the optional client voxel-lighting renderer; alpha is ignored.
+    -- nil derives emission color from the node's average texture/palette color.
+    -- Does not change scalar map light, mob spawning, or gameplay light tests.
+    -- Older clients retain their normal monochrome lighting.
 
     -- See "Tool Capabilities" section for an example including explanation
     tool_capabilities = {

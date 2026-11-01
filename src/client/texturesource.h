@@ -60,6 +60,13 @@ public:
 	/// @brief Returns existing texture by ID
 	virtual video::ITexture *getTexture(u32 id)=0;
 
+	// Normal data has an independent cache identity and variance-preserving mips.
+	virtual video::ITexture *getNormalTexture(const std::string &image, u32 *id = nullptr)
+	{
+		return getTexture(image,id);
+	}
+	virtual bool hasNormalVariance(video::ITexture *texture) { return false; }
+
 	/// @brief Generates texture string(s) into an array texture
 	/// @note Unlike the other getters this will always add a *new* texture.
 	/// @return its ID

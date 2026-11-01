@@ -27,6 +27,16 @@
 
 	Utilizes a thread-safe cache.
 */
+// Shared capability/pipeline decision for the floating-point surface attachment.
+bool supportsSceneSurface();
+bool useSceneSurface();
+bool useSceneEmissionMask();
+bool useVolumetricFog();
+bool useVoxelFogLighting();
+bool useWaterRefraction();
+bool useMaterialMaps();
+bool useVolumetricClouds();
+
 std::string getShaderPath(const std::string &name_of_shader,
 		const std::string &filename);
 
@@ -236,6 +246,8 @@ struct ShaderFeatures {
 	/// Joint transforms are expected in the JointMatrices UBO.
 	/// @see irr::video::IVideoDriver::setJointTransforms
 	bool skinning = false;
+	/// Preserve native self illumination through material shading and surface AO.
+	bool emissive_surface = false;
 
 	void setConstants(ShaderConstants &consts) const;
 };

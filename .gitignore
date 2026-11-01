@@ -52,6 +52,8 @@ AppDir
 /result
 
 ## Files related to Luanti development cycle
+__pycache__/
+*.py[cod]
 /*.patch
 *.diff
 # GNU Patch reject file

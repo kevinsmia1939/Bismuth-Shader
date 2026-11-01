@@ -29,5 +29,8 @@ void OffsetCameraStep::reset(PipelineContext &context)
 
 void OffsetCameraStep::run(PipelineContext &context)
 {
-	context.client->getCamera()->getCameraNode()->setPosition((base_transform * move).getTranslation());
+	auto *camera = context.client->getCamera()->getCameraNode();
+	camera->setPosition((base_transform * move).getTranslation());
+	// Water-medium/capture checks run before drawAll updates the scene graph.
+	camera->updateAbsolutePosition();
 }

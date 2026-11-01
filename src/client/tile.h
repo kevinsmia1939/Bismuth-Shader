@@ -58,9 +58,14 @@ static inline MaterialType material_type_with_alpha(MaterialType type)
 struct FrameSpec
 {
 	FrameSpec() = default;
+	FrameSpec(u32 id, video::ITexture *base, video::ITexture *normal = nullptr,
+			video::ITexture *material = nullptr) : texture_id(id), texture(base),
+		normal_texture(normal), material_texture(material) {}
 
 	u32 texture_id = 0;
 	video::ITexture *texture = nullptr;
+	video::ITexture *normal_texture = nullptr;
+	video::ITexture *material_texture = nullptr;
 };
 
 /**
@@ -82,6 +87,8 @@ struct TileLayer
 	{
 		return
 			texture_id == other.texture_id &&
+			normal_texture == other.normal_texture &&
+			material_texture == other.material_texture &&
 			shader_id == other.shader_id &&
 			material_flags == other.material_flags &&
 			has_color == other.has_color &&
@@ -130,8 +137,11 @@ struct TileLayer
 	// Ordered for size, please do not reorder
 
 	video::ITexture *texture = nullptr;
+	video::ITexture *normal_texture = nullptr;
+	video::ITexture *material_texture = nullptr;
 
 	u32 shader_id = 0;
+	float diffuse_fraction = 1.0f;
 
 	u32 texture_id = 0;
 
@@ -179,6 +189,8 @@ struct std::hash<TileLayer>
 			ret += h;
 			ret ^= (ret << 6) + (ret >> 2); // distribute bits
 		}
+		for (auto *texture : { l.normal_texture, l.material_texture })
+			ret ^= std::hash<video::ITexture *>{}(texture) + (ret << 6) + (ret >> 2);
 		return ret;
 	}
 };
@@ -212,6 +224,7 @@ struct AnimationInfo {
 	video::ITexture *getTexture(float animation_time) const;
 
 private:
+	const FrameSpec *getFrame(float animation_time) const;
 	u16 m_frame_length_ms = 0;
 	u16 m_frame_count = 1;
 

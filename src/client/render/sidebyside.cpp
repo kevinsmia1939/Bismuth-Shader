@@ -59,14 +59,13 @@ void populateSideBySidePipeline(RenderPipeline *pipeline, Client *client, bool h
 	buffer->setTexture(TEXTURE_RIGHT, virtual_size_scale, "3d_render_right", color_format);
 	buffer->setTexture(TEXTURE_DEPTH, virtual_size_scale, "3d_depthmap_sidebyside", depth_format);
 
-	auto step3D = pipeline->own(create3DStage(client, virtual_size_scale));
-
 	// eyes
 	for (bool right : { false, true }) {
 		pipeline->addStep<OffsetCameraStep>(flipped ? !right : right);
 		auto output = pipeline->createOwned<TextureBufferOutput>(
 				buffer, std::vector<u8> {right ? TEXTURE_RIGHT : TEXTURE_LEFT}, TEXTURE_DEPTH);
-		pipeline->addStep<SetRenderTargetStep>(step3D, output);
+		auto step3D = pipeline->own(create3DStage(client, virtual_size_scale, virtual_size_scale));
+		step3D->setRenderTarget(output);
 		pipeline->addStep(step3D);
 		pipeline->addStep<DrawWield>();
 		pipeline->addStep<MapPostFxStep>();

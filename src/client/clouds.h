@@ -127,6 +127,9 @@ public:
 	bool isCameraInsideCloud() const { return m_camera_inside_cloud; }
 
 	const video::SColor getColor() const { return m_color.toSColor(); }
+	const CloudParams &getParameters() const { return m_params; }
+	v2f getOrigin() const { return m_origin; }
+	u32 getSeed() const { return m_seed; }
 
 private:
 	void updateBox()

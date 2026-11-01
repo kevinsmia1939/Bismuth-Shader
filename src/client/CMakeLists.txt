@@ -37,6 +37,16 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/stereo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/secondstage.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/taa.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/camera_effects.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/voxel_radiance.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/voxel_lighting.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/volumetric_clouds.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/cloud_shadows.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/cloud_field.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/cloud_denoise.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/fog_denoise.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/water_volume.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/activeobjectmgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/camera.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/client.cpp

@@ -76,6 +76,10 @@ struct SDriverLimits {
 	u32 MaxTextureSize = 0;
 	//! Maximum number of images in an array texture
 	u32 MaxArrayTextureImages = 0;
+	//! Number of texture units supported by SMaterial on this device
+	u32 MaxMaterialTextures = 0;
+	//! Simultaneous color outputs, bounded by both attachment and draw-buffer limits.
+	u32 MaxColorAttachments = 0;
 };
 
 //! Interface to driver which is able to perform 2d and 3d graphics functions.

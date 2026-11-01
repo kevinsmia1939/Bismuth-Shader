@@ -18,9 +18,23 @@ public:
 
 	virtual void reset(PipelineContext &context) override {}
 	virtual void run(PipelineContext &context) override;
+	void setEmissionClearTarget(RenderTarget *target) { m_emission_clear = target; }
+	void setWaterCapture(TextureBufferOutput *target, TextureBuffer *buffer,
+			u8 color, u8 depth)
+	{
+		m_water_target = target;
+		m_water_buffer = buffer;
+		m_water_color = color;
+		m_water_depth = depth;
+	}
 
 private:
 	RenderTarget *m_target {nullptr};
+	RenderTarget *m_emission_clear = nullptr;
+	TextureBufferOutput *m_water_target = nullptr;
+	TextureBuffer *m_water_buffer = nullptr;
+	u8 m_water_color = 0;
+	u8 m_water_depth = 0;
 };
 
 class DrawWield : public RenderStep
@@ -81,7 +95,7 @@ private:
 	RenderTarget *m_target;
 };
 
-std::unique_ptr<RenderStep> create3DStage(Client *client, v2f scale);
+std::unique_ptr<RenderStep> create3DStage(Client *client, v2f scale, v2f output_scale = v2f(1.0f));
 RenderStep* addUpscaling(RenderPipeline *pipeline, RenderStep *previousStep, v2f downscale_factor, Client *client);
 
 void populatePlainPipeline(RenderPipeline *pipeline, Client *client);

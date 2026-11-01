@@ -21,8 +21,12 @@
 #include "util/basic_macros.h"
 #include "util/tracy_wrapper.h"
 #include "client/renderingengine.h"
+#include "client/render/voxel_lighting.h"
+#include "client/render/water_volume.h"
+#include "client/render/cloud_shadows.h"
 
 #include <queue>
+#include <ICameraSceneNode.h>
 
 namespace {
 	// data structure that groups block meshes by material
@@ -1141,6 +1145,12 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 
 	// Render all mesh buffers in order
 	drawcall_count += draw_order.size();
+	std::vector<video::E_MATERIAL_TYPE> water_materials;
+	auto *render_core = m_rendering_engine->get_rendering_core();
+	if (is_transparent_pass && render_core && render_core->get_water_color()) {
+		for (u32 id : m_nodedef->m_water_materials)
+			water_materials.push_back(m_client->getShaderSource()->getShaderInfo(id).material);
+	}
 
 	for (auto &descriptor : draw_order) {
 		if (!descriptor.m_reuse_material) {
@@ -1168,12 +1178,57 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 				layer.AnisotropicFilter = 0;
 			}
 
+			if (auto *volume = m_rendering_engine->get_voxel_lighting()) {
+				auto &layer = material.TextureLayers[2];
+				layer.Texture = volume->getTexture();
+				layer.MinFilter = video::ETMINF_LINEAR_MIPMAP_NEAREST;
+				layer.MagFilter = video::ETMAGF_LINEAR;
+				layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+				layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+				layer.AnisotropicFilter = 0;
+			}
+			const auto crack_layer = material.TextureLayers[1];
+			if (render_core && render_core->get_cloud_shadows()) {
+				auto &layer = material.TextureLayers[7];
+				layer.Texture = render_core->get_cloud_shadows()->getTexture();
+				layer.MinFilter = video::ETMINF_LINEAR_MIPMAP_NEAREST;
+				layer.MagFilter = video::ETMAGF_LINEAR;
+				layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+				layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+				layer.AnisotropicFilter = 0;
+			}
+			if (render_core && render_core->get_water_volume()) {
+				auto &layer = material.TextureLayers[6];
+				layer.Texture = render_core->get_water_volume()->getTexture();
+				layer.MinFilter = video::ETMINF_NEAREST_MIPMAP_NEAREST;
+				layer.MagFilter = video::ETMAGF_NEAREST;
+				layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+				layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+				layer.AnisotropicFilter = 0;
+			}
+			if (CONTAINS(water_materials, material.MaterialType)) {
+				material.setTexture(1, render_core->get_water_color());
+				material.setTexture(2, render_core->get_water_depth());
+				for (u32 slot = 1; slot <= 2; ++slot) {
+					auto &layer = material.TextureLayers[slot];
+					layer.MinFilter = slot == 1 ? video::ETMINF_LINEAR_MIPMAP_NEAREST :
+						video::ETMINF_NEAREST_MIPMAP_NEAREST;
+					layer.MagFilter = slot == 1 ? video::ETMAGF_LINEAR : video::ETMAGF_NEAREST;
+					layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+					layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+					layer.AnisotropicFilter = 0;
+				}
+			}
 			driver->setMaterial(material);
+			material.TextureLayers[1] = crack_layer;
 			++material_swaps;
 			if (auto *tex = material.getTexture(0); tex && tex->getType() == video::ETT_2D_ARRAY)
 				++array_texture_use;
 
 			material.TextureLayers[ShadowRenderer::TEXTURE_LAYER_SHADOW].Texture = nullptr;
+			material.TextureLayers[2].Texture = nullptr;
+			material.TextureLayers[6].Texture = nullptr;
+			material.TextureLayers[7].Texture = nullptr;
 		}
 
 		m.setTranslation(descriptor.m_pos);
@@ -1424,10 +1479,16 @@ void ClientMap::renderPostFx(CameraMode cam_mode)
 	// Sadly ISceneManager has no "post effects" render pass, in that case we
 	// could just register for that and handle it in renderMap().
 
-	MapNode n = getNode(floatToInt(m_camera_position, BS));
+	auto *core = m_rendering_engine->get_rendering_core();
+	v3f eye_position = m_camera_position;
+	if (core && core->get_water_volume())
+		eye_position = m_client->getCamera()->getCameraNode()->getAbsolutePosition() + intToFloat(m_camera_offset, BS);
+	MapNode n = getNode(floatToInt(eye_position, BS));
 
 	const ContentFeatures& features = m_nodedef->get(n);
 	video::SColor post_color = features.post_effect_color;
+	if (core && core->is_water_medium_handled() && WaterVolume::eligible(n, m_nodedef))
+		post_color.setAlpha(0); // The scene pass integrated this game's liquid tint over distance.
 
 	if (features.post_effect_color_shaded) {
 		auto apply_light = [] (u32 color, u32 light) {

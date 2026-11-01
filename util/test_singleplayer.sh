@@ -19,8 +19,11 @@ opts=(
 	active_block_range=1 viewing_range=40 helper_mode=devtest
 	opengl_debug=true mip_map=true enable_waving_{leaves,plants,water}=true
 	antialiasing=ssaa node_highlighting=halo
-	enable_{auto_exposure,bloom,dynamic_shadows,translucent_foliage,volumetric_lighting,water_reflections}=true
+	enable_{auto_exposure,bloom,dynamic_shadows,translucent_foliage,volumetric_lighting,water_reflections,water_refraction,ssao,atmosphere,volumetric_fog,volumetric_clouds,screen_space_reflections,material_shading,indirect_lighting,voxel_lighting}=true
 	shadow_map_color=true
+	enable_contact_hardening_shadows=true
+	enable_camera_motion_blur=true enable_camera_dof=true
+	enable_water_volume=true
 )
 printf '%s\n' "${opts[@]}" "${clientconf:-}" >"$conf_client"
 

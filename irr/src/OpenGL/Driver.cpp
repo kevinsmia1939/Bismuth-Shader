@@ -653,10 +653,30 @@ void COpenGL3DriverBase::blitRenderTarget(IRenderTarget *from, IRenderTarget *to
 	COpenGL3RenderTarget *dst = static_cast<COpenGL3RenderTarget *>(to);
 	GL.BindFramebuffer(GL.READ_FRAMEBUFFER, src->getBufferID());
 	GL.BindFramebuffer(GL.DRAW_FRAMEBUFFER, dst->getBufferID());
-	GL.BlitFramebuffer(
-			0, 0, src->getSize().Width, src->getSize().Height,
+	const u32 count = core::min_(from->getTexture().size(), to->getTexture().size());
+	core::array<GLenum> draw_buffers;
+	for (u32 i = 0; i < count; ++i) {
+		const GLenum attachment = GL.COLOR_ATTACHMENT0 + i;
+		draw_buffers.push_back(attachment);
+		GL.ReadBuffer(attachment);
+		GL.DrawBuffers(1, &attachment);
+		GL.BlitFramebuffer(0, 0, src->getSize().Width, src->getSize().Height,
 			0, 0, dst->getSize().Width, dst->getSize().Height,
-			GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT | GL.STENCIL_BUFFER_BIT, GL.NEAREST);
+			GL.COLOR_BUFFER_BIT, GL.NEAREST);
+	}
+	GL.ReadBuffer(GL.COLOR_ATTACHMENT0);
+	GL.DrawBuffers(draw_buffers.size(), draw_buffers.const_pointer());
+	GLbitfield depth_mask = 0;
+	if (src->getDepthStencil() && dst->getDepthStencil()) {
+		depth_mask = GL.DEPTH_BUFFER_BIT;
+		if (src->getDepthStencil()->getColorFormat() == ECF_D24S8 &&
+				dst->getDepthStencil()->getColorFormat() == ECF_D24S8)
+			depth_mask |= GL.STENCIL_BUFFER_BIT;
+	}
+	if (depth_mask)
+		GL.BlitFramebuffer(0, 0, src->getSize().Width, src->getSize().Height,
+			0, 0, dst->getSize().Width, dst->getSize().Height,
+			depth_mask, GL.NEAREST);
 
 	TEST_GL_ERROR(this);
 
@@ -1712,6 +1732,8 @@ SDriverLimits COpenGL3DriverBase::getLimits() const
 	ret.MaxPrimitiveCount = Version.Spec == OpenGLSpec::ES ? UINT16_MAX : INT32_MAX;
 	ret.MaxTextureSize = MaxTextureSize;
 	ret.MaxArrayTextureImages = MaxArrayTextureLayers;
+	ret.MaxMaterialTextures = Feature.MaxTextureUnits;
+	ret.MaxColorAttachments = core::min_(Feature.ColorAttachment, Feature.MultipleRenderTarget);
 	return ret;
 }
 

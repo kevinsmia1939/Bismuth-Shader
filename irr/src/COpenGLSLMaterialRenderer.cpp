@@ -353,8 +353,14 @@ s32 COpenGLSLMaterialRenderer::getVertexShaderConstantID(const c8 *name)
 
 s32 COpenGLSLMaterialRenderer::getPixelShaderConstantID(const c8 *name)
 {
+	const auto length = strlen(name);
 	for (u32 i = 0; i < UniformInfo.size(); ++i) {
-		if (UniformInfo[i].name == name)
+		const auto &uniform = UniformInfo[i].name;
+		// Accept array base names like the OpenGL 3 driver, while preserving
+		// the historical explicit "[0]" spelling for existing callers.
+		if (uniform == name || (uniform.size() == length + 3 &&
+			uniform[length] == '[' && uniform[length + 1] == '0' && uniform[length + 2] == ']' &&
+			uniform.equalsn(name, length)))
 			return i;
 	}
 

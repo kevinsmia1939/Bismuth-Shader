@@ -67,7 +67,7 @@ public:
 	void clearAllRegisteredNodesForRendering() override;
 
 	//! draws all scene nodes
-	void drawAll() override;
+	void drawAll(const std::function<void()> &afterSolid = {}) override;
 
 	//! Adds a camera scene node to the tree and sets it as active camera.
 	//! \param position: Position of the space relative to its parent where the camera will be placed.

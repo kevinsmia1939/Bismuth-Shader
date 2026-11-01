@@ -5,7 +5,7 @@
 #include "tile.h"
 #include <cassert>
 
-video::ITexture *AnimationInfo::getTexture(float animation_time) const
+const FrameSpec *AnimationInfo::getFrame(float animation_time) const
 {
 	if (getFrameCount() == 0)
 		return nullptr;
@@ -15,20 +15,29 @@ video::ITexture *AnimationInfo::getTexture(float animation_time) const
 			% m_frame_count;
 
 	assert(frame < m_frames->size());
-	return (*m_frames)[frame].texture;
+	return &(*m_frames)[frame];
+}
+
+video::ITexture *AnimationInfo::getTexture(float animation_time) const
+{
+	const auto *frame = getFrame(animation_time);
+	return frame ? frame->texture : nullptr;
 }
 
 void AnimationInfo::updateTexture(video::SMaterial &material, float animation_time)
 {
-	video::ITexture *texture = getTexture(animation_time);
-	if (texture) {
-		material.setTexture(0, texture);
+	if (const auto *frame = getFrame(animation_time)) {
+		material.setTexture(0, frame->texture);
+		material.setTexture(4, frame->normal_texture);
+		material.setTexture(5, frame->material_texture);
 	}
 }
 
 void TileLayer::applyMaterialOptions(video::SMaterial &material, int layer) const
 {
 	material.setTexture(0, texture);
+	material.setTexture(4, normal_texture);
+	material.setTexture(5, material_texture);
 
 	material.BackfaceCulling = (material_flags & MATERIAL_FLAG_BACKFACE_CULLING) != 0;
 	if (!(material_flags & MATERIAL_FLAG_TILEABLE_HORIZONTAL)) {
@@ -38,6 +47,10 @@ void TileLayer::applyMaterialOptions(video::SMaterial &material, int layer) cons
 	if (!(material_flags & MATERIAL_FLAG_TILEABLE_VERTICAL)) {
 		material.TextureLayers[0].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 		material.TextureLayers[1].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+	}
+	for (u32 slot : { 4, 5 }) {
+		material.TextureLayers[slot].TextureWrapU = material.TextureLayers[0].TextureWrapU;
+		material.TextureLayers[slot].TextureWrapV = material.TextureLayers[0].TextureWrapV;
 	}
 
 	/*

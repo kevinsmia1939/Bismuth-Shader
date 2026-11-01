@@ -365,6 +365,10 @@ void ContentFeatures::reset()
 	liquid_range = LIQUID_LEVEL_MAX+1;
 	drowning = 0;
 	light_source = 0;
+	light_source_color = video::SColor(255, 255, 255, 255);
+	light_source_color_set = false;
+	light_transmission_color = video::SColor(255, 255, 255, 255);
+	light_transmission_color_set = false;
 	damage_per_second = 0;
 	node_box.reset();
 	selection_box.reset();
@@ -511,10 +515,49 @@ void ContentFeatures::serialize(std::ostream &os, u16 protocol_version) const
 	writeU8(os, move_resistance);
 	writeU8(os, liquid_move_physics);
 	writeU8(os, post_effect_color_shaded);
+	// ContentFeatures is length-wrapped: older readers safely ignore this suffix.
+	writeU8(os, light_source_color_set);
+	writeARGB8(os, light_source_color);
+	const auto has_maps = [](const auto &tiles) {
+		return std::any_of(std::begin(tiles), std::end(tiles), [](const TileDef &tile) {
+			return !tile.normal_texture.empty() || !tile.material_texture.empty();
+		});
+	};
+	if (has_maps(tiledef) || has_maps(tiledef_overlay) || has_maps(tiledef_special) ||
+			light_transmission_color_set) {
+		writeU8(os, 1); // material extension version (inside length-wrapped ContentFeatures)
+		const auto write_maps = [&](const auto &tiles) {
+			for (const auto &tile : tiles) {
+				os << serializeString16(tile.normal_texture);
+				os << serializeString16(tile.material_texture);
+			}
+		};
+		write_maps(tiledef);
+		write_maps(tiledef_overlay);
+		write_maps(tiledef_special);
+	}
+	if (light_transmission_color_set) {
+		writeU8(os, 1); // transmission extension version, after the material extension
+		writeARGB8(os, light_transmission_color);
+	}
 }
 
 void ContentFeatures::deSerialize(std::istream &is, u16 protocol_version)
 {
+	// This object may be reused for definitions from older peers.
+	light_transmission_color = video::SColor(255, 255, 255, 255);
+	light_transmission_color_set = false;
+	light_source_color = video::SColor(255, 255, 255, 255);
+	light_source_color_set = false;
+	const auto clear_maps = [](auto &tiles) {
+		for (auto &tile : tiles) {
+			tile.normal_texture.clear();
+			tile.material_texture.clear();
+		}
+	};
+	clear_maps(tiledef);
+	clear_maps(tiledef_overlay);
+	clear_maps(tiledef_special);
 	if (readU8(is) < CONTENTFEATURES_VERSION)
 		throw SerializationError("unsupported ContentFeatures version");
 
@@ -644,9 +687,25 @@ void ContentFeatures::deSerialize(std::istream &is, u16 protocol_version)
 
 		post_effect_color_shaded = readU8(is);
 
-		//if (!canRead(is))
-		//	break;
-		// Add new code here
+		if (!canRead(is))
+			break;
+		light_source_color_set = readU8(is);
+		light_source_color = readARGB8(is);
+		if (!canRead(is) || readU8(is) != 1)
+			break;
+		const auto read_maps = [&](auto &tiles) {
+			for (auto &tile : tiles) {
+				tile.normal_texture = deSerializeString16(is);
+				tile.material_texture = deSerializeString16(is);
+			}
+		};
+		read_maps(tiledef);
+		read_maps(tiledef_overlay);
+		read_maps(tiledef_special);
+		if (!canRead(is) || readU8(is) != 1)
+			break;
+		light_transmission_color = readARGB8(is);
+		light_transmission_color_set = true;
 	} while (0);
 }
 
@@ -671,6 +730,7 @@ void NodeDefManager::clear()
 	m_selection_box_int_union.reset(0,0,0);
 #if CHECK_CLIENT_BUILD()
 	m_leaves_materials.clear();
+	m_water_materials.clear();
 #endif
 
 	resetNodeResolveState();

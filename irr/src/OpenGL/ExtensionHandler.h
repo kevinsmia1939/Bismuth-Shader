@@ -64,12 +64,13 @@ public:
 		case EVDF_ARB_VERTEX_PROGRAM_1:
 		case EVDF_ARB_FRAGMENT_PROGRAM_1:
 		case EVDF_GEOMETRY_SHADER:
-		case EVDF_MULTIPLE_RENDER_TARGETS:
 		case EVDF_MRT_BLEND:
 		case EVDF_MRT_COLOR_MASK:
 		case EVDF_MRT_BLEND_FUNC:
 		case EVDF_OCCLUSION_QUERY:
 			return false;
+		case EVDF_MULTIPLE_RENDER_TARGETS:
+			return Feature.MultipleRenderTarget >= 2 && Feature.ColorAttachment >= 2;
 		case EVDF_STENCIL_BUFFER:
 			return StencilBuffer;
 		case EVDF_TEXTURE_MULTISAMPLE:

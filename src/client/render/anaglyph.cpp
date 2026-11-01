@@ -54,10 +54,12 @@ void populateAnaglyphPipeline(RenderPipeline *pipeline, Client *client)
 {
 	// clear depth buffer every time 3D is rendered
 	auto step3D = pipeline->own(create3DStage(client, v2f(1.0)));
+	auto right3D = pipeline->own(create3DStage(client, v2f(1.0)));
 	auto screen = pipeline->createOwned<ScreenTarget>();
 	auto clear_depth = pipeline->createOwned<ClearDepthBufferTarget>(screen);
 	auto enable_override_material = pipeline->createOwned<ConfigureOverrideMaterialTarget>(clear_depth, true);
 	step3D->setRenderTarget(enable_override_material);
+	right3D->setRenderTarget(enable_override_material);
 
 	// left eye
 	pipeline->addStep<OffsetCameraStep>(false);
@@ -67,7 +69,7 @@ void populateAnaglyphPipeline(RenderPipeline *pipeline, Client *client)
 	// right eye
 	pipeline->addStep<OffsetCameraStep>(true);
 	pipeline->addStep<SetColorMaskStep>(video::ECP_GREEN | video::ECP_BLUE);
-	pipeline->addStep(step3D);
+	pipeline->addStep(right3D);
 
 	// reset
 	pipeline->addStep<OffsetCameraStep>(0.0f);

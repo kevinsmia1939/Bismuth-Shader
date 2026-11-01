@@ -9,6 +9,16 @@
 #include "client/shader.h"
 #include "settings.h"
 #include "plain.h"
+#include "taa.h"
+#include "camera_effects.h"
+#include "water_volume.h"
+#include "client/shadows/dynamicshadowsrender.h"
+#include "volumetric_clouds.h"
+#include "cloud_shadows.h"
+#include "cloud_denoise.h"
+#include "fog_denoise.h"
+#include "voxel_lighting.h"
+#include "client/renderingengine.h"
 #include <ISceneManager.h>
 
 PostProcessingStep::PostProcessingStep(u32 _shader_id, const std::vector<u8> &_texture_map) :
@@ -58,6 +68,52 @@ void PostProcessingStep::run(PipelineContext &context)
 
 	for (u32 i = 0; i < texture_map.size(); i++)
 		material.TextureLayers[i].Texture = source->getTexture(texture_map[i]);
+	if (cloud_noise) {
+		auto *core = RenderingEngine::get_rendering_core();
+		auto *noise = core ? core->get_cloud_noise() : nullptr;
+		material.setTexture(2, noise ? noise->getTexture() : nullptr);
+		setBilinearFilter(2, true);
+		material.TextureLayers[2].TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+		material.TextureLayers[2].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+		material.TextureLayers[2].AnisotropicFilter = 0;
+	}
+	if (cloud_shadows) {
+		auto *core = RenderingEngine::get_rendering_core();
+		auto *shadows = core ? core->get_cloud_shadows() : nullptr;
+		material.setTexture(7, shadows ? shadows->getTexture() : nullptr);
+		setBilinearFilter(7, true);
+		material.TextureLayers[7].TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+		material.TextureLayers[7].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+		material.TextureLayers[7].AnisotropicFilter = 0;
+	}
+	if (shadow_map) {
+		assert(texture_map.size() <= ShadowRenderer::TEXTURE_LAYER_SHADOW);
+		auto *shadow = context.shadow_renderer;
+		material.setTexture(ShadowRenderer::TEXTURE_LAYER_SHADOW,
+			shadow && shadow->is_active() ? shadow->get_texture() : nullptr);
+	}
+	if (water_volume) {
+		auto *core = RenderingEngine::get_rendering_core();
+		auto *volume = core ? core->get_water_volume() : nullptr;
+		material.setTexture(6, volume ? volume->getTexture() : nullptr);
+		auto &layer = material.TextureLayers[6];
+		layer.MinFilter = video::ETMINF_NEAREST_MIPMAP_NEAREST;
+		layer.MagFilter = video::ETMAGF_NEAREST;
+		layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+		layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+		layer.AnisotropicFilter = 0;
+	}
+	if (voxel_lighting) {
+		auto *volume = RenderingEngine::get_voxel_lighting();
+		material.setTexture(4, volume ? volume->getTexture() : nullptr);
+		auto &layer = material.TextureLayers[4];
+		// X/Y probe interpolation uses the atlas sampler; Z blends in GLSL.
+		layer.MinFilter = video::ETMINF_LINEAR_MIPMAP_NEAREST;
+		layer.MagFilter = video::ETMAGF_LINEAR;
+		layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+		layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+		layer.AnisotropicFilter = 0;
+	}
 
 	static const video::SColor color = video::SColor(0, 0, 0, 255);
 	static const video::S3DVertex vertices[4] = {
@@ -73,6 +129,17 @@ void PostProcessingStep::run(PipelineContext &context)
 	static const u16 indices[6] = {0, 1, 2, 2, 3, 0};
 	driver->setMaterial(material);
 	driver->drawVertexPrimitiveList(&vertices, 4, &indices, 2);
+	if (cloud_shadows) material.setTexture(7, nullptr);
+	if (water_volume) {
+		auto *core = RenderingEngine::get_rendering_core();
+		const bool active = core && core->is_water_medium_applied();
+		// Each eye owns this step, even when both eyes share a shader program.
+		if (!water_medium_reported || active != water_medium_last) {
+			infostream << "Water volume: underwater medium " << (active ? "active" : "inactive") << std::endl;
+			water_medium_last = active;
+			water_medium_reported = true;
+		}
+	}
 }
 
 void PostProcessingStep::setBilinearFilter(u8 index, bool value)
@@ -82,7 +149,7 @@ void PostProcessingStep::setBilinearFilter(u8 index, bool value)
 	material.TextureLayers[index].MagFilter = value ? video::ETMAGF_LINEAR : video::ETMAGF_NEAREST;
 }
 
-RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep, v2f scale, Client *client)
+RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep, v2f scale, Client *client, TemporalAAState *temporal, CameraEffectsState *camera_effects)
 {
 	auto buffer = pipeline->createOwned<TextureBuffer>();
 	auto driver = client->getSceneManager()->getVideoDriver();
@@ -106,6 +173,30 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 
 	static const u8 TEXTURE_MSAA_COLOR = 7;
 	static const u8 TEXTURE_MSAA_DEPTH = 8;
+	static const u8 TEXTURE_SSAO = 9;
+
+	static const u8 TEXTURE_SURFACE = 30;
+	static const u8 TEXTURE_MSAA_SURFACE = 31;
+	static const u8 TEXTURE_LIGHTING = 32;
+	static const u8 TEXTURE_HISTORY = 33;
+	static const u8 TEXTURE_HISTORY_OUTPUT = 34;
+	static const u8 TEXTURE_WATER_COLOR = 35;
+	static const u8 TEXTURE_WATER_DEPTH = 36;
+	static const u8 TEXTURE_CLOUD_SCATTER = 37;
+	static const u8 TEXTURE_CLOUD_COLOR = 38;
+	static const u8 TEXTURE_CAMERA_MOTION = 39;
+	static const u8 TEXTURE_CAMERA_DOF = 40;
+	static const u8 TEXTURE_WATER_MEDIUM = 41;
+	static const u8 TEXTURE_CLOUD_GUIDE = 42;
+	static const u8 TEXTURE_CLOUD_HISTORY = 43;
+	static const u8 TEXTURE_CLOUD_HISTORY_GUIDE = 44;
+	static const u8 TEXTURE_CLOUD_FILTERED = 45;
+	static const u8 TEXTURE_FOG_SCATTER = 46, TEXTURE_FOG_TRANSMIT = 47;
+	static const u8 TEXTURE_FOG_HISTORY_SCATTER = 48, TEXTURE_FOG_HISTORY_TRANSMIT = 49;
+	static const u8 TEXTURE_FOG_FILTERED_SCATTER = 50, TEXTURE_FOG_FILTERED_TRANSMIT = 51;
+	static const u8 TEXTURE_FOG_COLOR = 52;
+	static const u8 TEXTURE_EMISSION_MASK = 53;
+	static const u8 TEXTURE_MSAA_EMISSION_MASK = 54;
 
 	static const u8 TEXTURE_SCALE_DOWN = 10;
 	static const u8 TEXTURE_SCALE_UP = 20;
@@ -146,7 +237,11 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 	}
 
 	const bool enable_ssaa = antialiasing == "ssaa";
-	const bool enable_fxaa = g_settings->getBool("fxaa");
+	const bool taa_fallback = antialiasing == "taa" && !temporal;
+	if (taa_fallback)
+		warningstream << "TAA requires floating-point render targets and high-precision shaders; "
+			"using FXAA instead." << std::endl;
+	const bool enable_fxaa = g_settings->getBool("fxaa") || taa_fallback;
 
 	verbosestream << "addPostProcessing(): AA = "
 		<< (enable_msaa ? "msaa" : enable_ssaa ? "ssaa" : "none")
@@ -168,14 +263,64 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 	buffer->setTexture(TEXTURE_EXPOSURE_2, core::dimension2du(1,1), "exposure_2", color_format, /*clear:*/ true);
 	buffer->setTexture(TEXTURE_DEPTH, scale, "3d_depthmap", depth_format);
 
+	const bool surface_enabled = useSceneSurface();
+	const bool emission_mask = useSceneEmissionMask();
+	const bool water_refraction = useWaterRefraction();
+	if (g_settings->getBool("enable_water_refraction") && !water_refraction)
+		warningstream << "Water refraction requires desktop OpenGL 3 and floating-point MRTs."
+			<< std::endl;
+	if (water_refraction) {
+		buffer->setTexture(TEXTURE_WATER_COLOR, scale, "water_opaque_color", color_format);
+		buffer->setTexture(TEXTURE_WATER_DEPTH, scale, "water_opaque_depth", depth_format);
+		auto *draw = dynamic_cast<Draw3D *>(previousStep);
+		sanity_check(draw);
+		draw->setWaterCapture(pipeline->createOwned<TextureBufferOutput>(buffer,
+			std::vector<u8> { TEXTURE_WATER_COLOR }, TEXTURE_WATER_DEPTH),
+			buffer, TEXTURE_WATER_COLOR, TEXTURE_WATER_DEPTH);
+	}
+	const bool lighting_enabled = surface_enabled || g_settings->getBool("enable_atmosphere");
+	if (g_settings->getBool("enable_atmosphere") &&
+			g_settings->getBool("enable_volumetric_fog") && !useVolumetricFog())
+		warningstream << "Volumetric fog requires desktop OpenGL; using analytic haze."
+			<< std::endl;
+	if (!supportsSceneSurface() && (g_settings->getBool("enable_screen_space_reflections") ||
+			g_settings->getBool("enable_indirect_lighting") ||
+			g_settings->getBool("enable_material_shading")))
+		warningstream << "Advanced surface lighting requires desktop OpenGL and floating-point MRTs."
+			<< std::endl;
+
+	std::vector<u8> scene_textures { TEXTURE_COLOR };
+	std::vector<u8> msaa_textures { TEXTURE_MSAA_COLOR };
+	if (surface_enabled) {
+		buffer->setTexture(TEXTURE_SURFACE, scale, "scene_surface", video::ECF_A16B16G16R16F);
+		scene_textures.push_back(TEXTURE_SURFACE);
+		if (enable_msaa) {
+			buffer->setTexture(TEXTURE_MSAA_SURFACE, scale, "scene_surface_msaa",
+				video::ECF_A16B16G16R16F, false, antialiasing_scale);
+			msaa_textures.push_back(TEXTURE_MSAA_SURFACE);
+		}
+	}
+	if (emission_mask) {
+		buffer->setTexture(TEXTURE_EMISSION_MASK, scale, "scene_emission", video::ECF_R8);
+		scene_textures.push_back(TEXTURE_EMISSION_MASK);
+		if (enable_msaa) {
+			buffer->setTexture(TEXTURE_MSAA_EMISSION_MASK, scale, "scene_emission_msaa", video::ECF_R8, false, antialiasing_scale);
+			msaa_textures.push_back(TEXTURE_MSAA_EMISSION_MASK);
+		}
+		auto *draw = dynamic_cast<Draw3D *>(previousStep);
+		sanity_check(draw);
+		draw->setEmissionClearTarget(pipeline->createOwned<TextureBufferOutput>(buffer,
+			enable_msaa ? TEXTURE_MSAA_EMISSION_MASK : TEXTURE_EMISSION_MASK));
+	}
+
 	// attach buffer to the previous step
 	if (enable_msaa) {
-		TextureBufferOutput *msaa = pipeline->createOwned<TextureBufferOutput>(buffer, std::vector<u8> { TEXTURE_MSAA_COLOR }, TEXTURE_MSAA_DEPTH);
+		TextureBufferOutput *msaa = pipeline->createOwned<TextureBufferOutput>(buffer, msaa_textures, TEXTURE_MSAA_DEPTH);
 		previousStep->setRenderTarget(msaa);
-		TextureBufferOutput *normal = pipeline->createOwned<TextureBufferOutput>(buffer, std::vector<u8> { TEXTURE_COLOR }, TEXTURE_DEPTH);
+		TextureBufferOutput *normal = pipeline->createOwned<TextureBufferOutput>(buffer, scene_textures, TEXTURE_DEPTH);
 		pipeline->addStep<ResolveMSAAStep>(msaa, normal);
 	} else {
-		previousStep->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, std::vector<u8> { TEXTURE_COLOR }, TEXTURE_DEPTH));
+		previousStep->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, scene_textures, TEXTURE_DEPTH));
 	}
 
 	// shared variables
@@ -191,7 +336,155 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 
 	// post-processing stage
 
-	u8 source = TEXTURE_COLOR;
+	u8 scene_source = TEXTURE_COLOR;
+	const bool clouds_enabled = useVolumetricClouds();
+	const bool cloud_denoising = useCloudDenoising();
+	const bool fog_denoising = useFogDenoising();
+	// Occlude surface radiance before adding cloud/fog/water scattering or
+	// screen-space lighting. Volume radiance must not inherit surface creases.
+	if (g_settings->getBool("enable_ssao")) {
+		buffer->setTexture(TEXTURE_SSAO, scale, "ssao", color_format);
+		shader_id = client->getShaderSource()->getShaderRaw("ssao");
+		std::vector<u8> inputs{scene_source, TEXTURE_DEPTH};
+		if (surface_enabled)
+			inputs.push_back(TEXTURE_SURFACE);
+		if (emission_mask)
+			inputs.push_back(TEXTURE_EMISSION_MASK);
+		auto ao = pipeline->addStep<PostProcessingStep>(shader_id, inputs);
+		ao->setRenderSource(buffer);
+		ao->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_SSAO));
+		scene_source = TEXTURE_SSAO;
+	}
+	if (clouds_enabled) {
+		const float resolution = g_settings->getFloat("volumetric_cloud_resolution", 0.25f, 1.0f);
+		buffer->setTexture(TEXTURE_CLOUD_SCATTER, scale * resolution, "cloud_scatter", bloom_format);
+		buffer->setTexture(TEXTURE_CLOUD_COLOR, scale, "cloud_color", color_format);
+		shader_id = client->getShaderSource()->getShaderRaw("volumetric_clouds");
+		auto clouds = pipeline->addStep<PostProcessingStep>(shader_id,
+			std::vector<u8> { scene_source, TEXTURE_DEPTH });
+		clouds->setRenderSource(buffer);
+		clouds->setCloudNoise(true);
+		u8 cloud_source = TEXTURE_CLOUD_SCATTER;
+		if (cloud_denoising) {
+			buffer->setTexture(TEXTURE_CLOUD_GUIDE, scale * resolution, "cloud_guide", bloom_format);
+			buffer->setTexture(TEXTURE_CLOUD_HISTORY, scale * resolution, "cloud_history", bloom_format);
+			buffer->setTexture(TEXTURE_CLOUD_HISTORY_GUIDE, scale * resolution, "cloud_history_guide", bloom_format);
+			buffer->setTexture(TEXTURE_CLOUD_FILTERED, scale * resolution, "cloud_filtered", bloom_format);
+			clouds->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer,
+				std::vector<u8>{TEXTURE_CLOUD_SCATTER, TEXTURE_CLOUD_GUIDE}));
+			auto state = make_irr<CloudDenoiseState>(scale * resolution, temporal);
+			pipeline->addStep<PrepareCloudDenoiseStep>(state, shader_id);
+			const u32 filter_id = client->getShaderSource()->getShader("cloud_denoise", {}, video::EMT_SOLID, state.get());
+			auto filter = pipeline->addStep<PostProcessingStep>(filter_id,
+				std::vector<u8>{TEXTURE_CLOUD_SCATTER, TEXTURE_CLOUD_GUIDE, TEXTURE_CLOUD_HISTORY, TEXTURE_CLOUD_HISTORY_GUIDE});
+			filter->setRenderSource(buffer);
+			filter->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_CLOUD_FILTERED));
+			pipeline->addStep<FinishCloudDenoiseStep>(state);
+			cloud_source = TEXTURE_CLOUD_FILTERED;
+		} else {
+			clouds->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_CLOUD_SCATTER));
+		}
+		shader_id = client->getShaderSource()->getShaderRaw("cloud_composite");
+		auto composite = pipeline->addStep<PostProcessingStep>(shader_id,
+			std::vector<u8> { scene_source, TEXTURE_DEPTH, cloud_source });
+		composite->setRenderSource(buffer);
+		composite->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_CLOUD_COLOR));
+		scene_source = TEXTURE_CLOUD_COLOR;
+	}
+	if (lighting_enabled) {
+		buffer->setTexture(TEXTURE_LIGHTING, scale, "scene_lighting", color_format);
+		shader_id = client->getShaderSource()->getShaderRaw("scene_lighting");
+		auto lighting = pipeline->addStep<PostProcessingStep>(shader_id,
+			std::vector<u8> { scene_source, TEXTURE_DEPTH, TEXTURE_SURFACE });
+		lighting->setRenderSource(buffer);
+		lighting->setBilinearFilter(0, true);
+		lighting->setShadowMap(useVolumetricFog() && !fog_denoising);
+		lighting->setCloudShadows(useCloudShadows() && !fog_denoising);
+		lighting->setVoxelLighting(useVoxelFogLighting() && !fog_denoising);
+		lighting->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_LIGHTING));
+		scene_source = TEXTURE_LIGHTING;
+	}
+	if (fog_denoising) {
+		const v2f fog_scale = scale * g_settings->getFloat("fog_resolution", 0.25f, 1.0f);
+		for (const auto &definition : std::vector<std::pair<u8, const char *>>{
+			{TEXTURE_FOG_SCATTER, "fog_scatter"}, {TEXTURE_FOG_TRANSMIT, "fog_transmit"},
+			{TEXTURE_FOG_HISTORY_SCATTER, "fog_history_scatter"}, {TEXTURE_FOG_HISTORY_TRANSMIT, "fog_history_transmit"},
+			{TEXTURE_FOG_FILTERED_SCATTER, "fog_filtered_scatter"}, {TEXTURE_FOG_FILTERED_TRANSMIT, "fog_filtered_transmit"}})
+			buffer->setTexture(definition.first, fog_scale, definition.second, bloom_format);
+		buffer->setTexture(TEXTURE_FOG_COLOR, scale, "fog_color", color_format);
+		const u32 raw_id = client->getShaderSource()->getShader("scene_lighting", {{"FOG_TRANSPORT_PASS", 1}}, video::EMT_SOLID);
+		auto fog = pipeline->addStep<PostProcessingStep>(raw_id, std::vector<u8>{scene_source, TEXTURE_DEPTH, TEXTURE_SURFACE});
+		fog->setRenderSource(buffer);
+		fog->setShadowMap(true); fog->setCloudShadows(useCloudShadows());
+		fog->setVoxelLighting(useVoxelFogLighting());
+		fog->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer,
+			std::vector<u8>{TEXTURE_FOG_SCATTER, TEXTURE_FOG_TRANSMIT}));
+		auto state = make_irr<FogDenoiseState>(fog_scale, temporal);
+		pipeline->addStep<PrepareFogDenoiseStep>(state, raw_id);
+		const u32 filter_id = client->getShaderSource()->getShader("fog_denoise", {}, video::EMT_SOLID, state.get());
+		auto filter = pipeline->addStep<PostProcessingStep>(filter_id, std::vector<u8>{TEXTURE_FOG_SCATTER,
+			TEXTURE_FOG_TRANSMIT, TEXTURE_FOG_HISTORY_SCATTER, TEXTURE_FOG_HISTORY_TRANSMIT});
+		filter->setRenderSource(buffer);
+		filter->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer,
+			std::vector<u8>{TEXTURE_FOG_FILTERED_SCATTER, TEXTURE_FOG_FILTERED_TRANSMIT}));
+		pipeline->addStep<FinishFogDenoiseStep>(state);
+		auto composite_state = make_irr<FogCompositeState>();
+		const u32 composite_id = client->getShaderSource()->getShader("fog_composite", {}, video::EMT_SOLID, composite_state.get());
+		auto composite = pipeline->addStep<PostProcessingStep>(composite_id, std::vector<u8>{scene_source,
+			TEXTURE_FOG_FILTERED_SCATTER, TEXTURE_FOG_FILTERED_TRANSMIT, TEXTURE_DEPTH, TEXTURE_SURFACE});
+		composite->setRenderSource(buffer);
+		composite->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_FOG_COLOR));
+		scene_source = TEXTURE_FOG_COLOR;
+	}
+	if (waterVolumeEnabled()) {
+		buffer->setTexture(TEXTURE_WATER_MEDIUM, scale, "water_medium", color_format);
+		shader_id = client->getShaderSource()->getShaderRaw("water_volume");
+		auto medium = pipeline->addStep<PostProcessingStep>(shader_id,
+			std::vector<u8> { scene_source, TEXTURE_DEPTH });
+		medium->setRenderSource(buffer);
+		medium->setWaterVolume(true);
+		medium->setVoxelLighting(useVoxelWaterLighting());
+		medium->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_WATER_MEDIUM));
+		scene_source = TEXTURE_WATER_MEDIUM;
+	}
+	if (temporal) {
+		buffer->setTexture(TEXTURE_HISTORY, scale, "taa_history", video::ECF_A16B16G16R16F);
+		buffer->setTexture(TEXTURE_HISTORY_OUTPUT, scale, "taa_output", video::ECF_A16B16G16R16F);
+		shader_id = client->getShaderSource()->getShader("taa", {}, video::EMT_SOLID, temporal);
+		std::vector<u8> taa_textures { scene_source, TEXTURE_HISTORY, TEXTURE_DEPTH, TEXTURE_SURFACE };
+		if (clouds_enabled)
+			taa_textures.push_back(TEXTURE_CLOUD_SCATTER);
+		if (fog_denoising)
+			taa_textures.push_back(TEXTURE_FOG_FILTERED_TRANSMIT);
+		auto taa = pipeline->addStep<PostProcessingStep>(shader_id, taa_textures);
+		taa->setRenderSource(buffer);
+		taa->setBilinearFilter(0, true);
+		taa->setBilinearFilter(1, true);
+		taa->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_HISTORY_OUTPUT));
+		scene_source = TEXTURE_HISTORY_OUTPUT;
+	}
+
+	if (!camera_effects && (g_settings->getBool("enable_camera_motion_blur") ||
+			g_settings->getBool("enable_camera_dof")))
+		warningstream << "Scene camera effects require desktop OpenGL; skipping camera blur." << std::endl;
+	if (camera_effects) {
+		for (bool motion : {true, false}) {
+			if (!g_settings->getBool(motion ? "enable_camera_motion_blur" : "enable_camera_dof"))
+				continue;
+			const u8 target = motion ? TEXTURE_CAMERA_MOTION : TEXTURE_CAMERA_DOF;
+			const std::string name = motion ? "camera_motion" : "camera_dof";
+			buffer->setTexture(target, scale, name, color_format);
+			shader_id = client->getShaderSource()->getShader(name, {}, video::EMT_SOLID, camera_effects);
+			auto effect = pipeline->addStep<PostProcessingStep>(shader_id,
+				std::vector<u8> { scene_source, TEXTURE_DEPTH });
+			effect->setRenderSource(buffer);
+			effect->setBilinearFilter(0, true);
+			effect->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, target));
+			scene_source = target;
+		}
+	}
+
+	u8 source = scene_source;
 
 	// common downsampling step for bloom or autoexposure
 	if (enable_bloom || enable_auto_exposure) {
@@ -277,14 +570,14 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 	}
 
 	// FXAA
-	u8 final_stage_source = TEXTURE_COLOR;
+	u8 final_stage_source = scene_source;
 
 	if (enable_fxaa) {
 		final_stage_source = TEXTURE_FXAA;
 
 		buffer->setTexture(TEXTURE_FXAA, scale, "fxaa", color_format);
 		shader_id = client->getShaderSource()->getShaderRaw("fxaa");
-		PostProcessingStep *effect = pipeline->createOwned<PostProcessingStep>(shader_id, std::vector<u8> { TEXTURE_COLOR });
+		PostProcessingStep *effect = pipeline->createOwned<PostProcessingStep>(shader_id, std::vector<u8> { scene_source });
 		pipeline->addStep(effect);
 		effect->setBilinearFilter(0, true);
 		effect->setRenderSource(buffer);
@@ -302,6 +595,18 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 
 	if (enable_auto_exposure) {
 		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_EXPOSURE_1, TEXTURE_EXPOSURE_2);
+	}
+
+	// Keep this swap after every consumer of the current resolved frame.
+	if (temporal)
+		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_HISTORY, TEXTURE_HISTORY_OUTPUT);
+	if (cloud_denoising) {
+		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_CLOUD_HISTORY, TEXTURE_CLOUD_FILTERED);
+		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_CLOUD_HISTORY_GUIDE, TEXTURE_CLOUD_GUIDE);
+	}
+	if (fog_denoising) {
+		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_FOG_HISTORY_SCATTER, TEXTURE_FOG_FILTERED_SCATTER);
+		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_FOG_HISTORY_TRANSMIT, TEXTURE_FOG_FILTERED_TRANSMIT);
 	}
 
 	return effect;

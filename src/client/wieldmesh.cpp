@@ -388,7 +388,7 @@ static scene::SMesh *createGenericNodeMesh(Client *client, MapNode n,
 
 std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 		const std::string &image_name, const TileAnimationParams &animation,
-		int &result_frame_length_ms)
+		int &result_frame_length_ms, bool mesh_filter, bool normal_map)
 {
 	result_frame_length_ms = 0;
 
@@ -398,7 +398,9 @@ std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 	// Still create texture if not animated
 	if (animation.type == TileAnimationType::TAT_NONE) {
 		u32 id;
-		video::ITexture *texture = tsrc->getTextureForMesh(image_name, &id);
+		video::ITexture *texture = normal_map ? tsrc->getNormalTexture(image_name, &id) :
+			mesh_filter ? tsrc->getTextureForMesh(image_name, &id) :
+			tsrc->getTexture(image_name, &id);
 		return {{id, texture}};
 	}
 
@@ -417,7 +419,9 @@ std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 		animation.getTextureModifer(os, texture_size, i);
 
 		u32 id;
-		frames[i].texture = tsrc->getTextureForMesh(os.str(), &id);
+		frames[i].texture = normal_map ? tsrc->getNormalTexture(os.str(), &id) :
+			mesh_filter ? tsrc->getTextureForMesh(os.str(), &id) :
+			tsrc->getTexture(os.str(), &id);
 		frames[i].texture_id = id;
 	}
 

@@ -101,6 +101,7 @@ private:
 
 	v3f last_cam_pos_world{0,0,0};
 	v3f last_look{0,1,0};
+	v3f last_light_up{0,0,1};
 
 	shadowFrustum shadow_frustum;
 	shadowFrustum future_frustum;

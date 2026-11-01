@@ -5,22 +5,62 @@
 
 #include "plain.h"
 #include "secondstage.h"
+#include "taa.h"
+#include "camera_effects.h"
+#include "water_volume.h"
 #include "settings.h"
 #include "client/camera.h"
 #include "client/client.h"
 #include "client/clientmap.h"
+#include "client/renderingengine.h"
 #include "client/hud.h"
 #include "client/minimap.h"
 #include "client/shadows/dynamicshadowsrender.h"
 #include <IGUIEnvironment.h>
+#include <ICameraSceneNode.h>
 
 /// Draw3D pipeline step
 void Draw3D::run(PipelineContext &context)
 {
 	if (m_target)
 		m_target->activate(context);
+	if (m_emission_clear && m_target) {
+		// The scene clear uses the sky color; the scalar emission mask must start
+		// at zero even if the sky is hidden or transparent geometry writes depth.
+		const auto clear_color = context.clear_color;
+		context.clear_color = video::SColor(0);
+		m_emission_clear->activate(context);
+		context.clear_color = clear_color;
+		m_target->activate(context); // Already activated: restore without clearing.
+	}
 
-	context.device->getSceneManager()->drawAll();
+	auto *core = RenderingEngine::get_rendering_core();
+	if (core)
+		core->set_water_scene(nullptr, nullptr);
+	auto *scene_target = dynamic_cast<TextureBufferOutput *>(m_target);
+	// The opaque snapshot is per-eye, at the current jitter and render size.
+	// Nothing from the preceding eye/frame may be sampled before this callback.
+	bool capture = core && scene_target && m_water_target;
+	if (capture) {
+		const auto *camera = context.client->getCamera()->getCameraNode();
+		const v3f eye_position = camera->getAbsolutePosition() + intToFloat(context.client->getCamera()->getOffset(), BS);
+		const auto node = context.client->getEnv().getClientMap().getNode(floatToInt(eye_position, BS));
+		const auto &features = context.client->ndef()->get(node);
+		auto *volume = core->get_water_volume();
+		const bool represented_liquid = volume && volume->getTexture() &&
+			WaterVolume::eligible(node, context.client->ndef()) && volume->hasGeometry(eye_position);
+		capture = (!features.isLiquid() || represented_liquid) && features.light_propagates;
+	}
+	context.device->getSceneManager()->drawAll(capture ? std::function<void()>([&] {
+		auto *source = scene_target->getIrrRenderTarget(context);
+		auto *target = m_water_target->getIrrRenderTarget(context);
+		context.device->getVideoDriver()->blitRenderTarget(source, target);
+		scene_target->activate(context);
+		core->set_water_scene(m_water_buffer->getTexture(m_water_color),
+			m_water_buffer->getTexture(m_water_depth));
+	}) : std::function<void()>());
+	if (core)
+		core->set_water_scene(nullptr, nullptr);
 	context.device->getVideoDriver()->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 	if (!context.show_hud)
 		return;
@@ -90,14 +130,32 @@ void UpscaleStep::run(PipelineContext &context)
 			core::rect<s32>(0, 0, lowres->getSize().Width, lowres->getSize().Height));
 }
 
-std::unique_ptr<RenderStep> create3DStage(Client *client, v2f scale)
+std::unique_ptr<RenderStep> create3DStage(Client *client, v2f scale, v2f output_scale)
 {
 	RenderStep *step = new Draw3D();
 	if (g_settings->getBool("enable_post_processing")) {
 		RenderPipeline *pipeline = new RenderPipeline();
+		irr_ptr<TemporalAAState> temporal;
+		if (temporalAAEnabled()) {
+			temporal = make_irr<TemporalAAState>(scale);
+		}
+		irr_ptr<CameraEffectsState> camera_effects;
+		if (cameraEffectsEnabled()) {
+			v2f render_scale = scale;
+			if (g_settings->get("antialiasing") == "ssaa")
+				render_scale *= std::max<u16>(2, g_settings->getU16("fsaa"));
+			camera_effects = make_irr<CameraEffectsState>(render_scale, output_scale, temporal);
+			pipeline->addStep<PrepareCameraEffectsStep>(camera_effects);
+		}
+		if (temporal)
+			pipeline->addStep<PrepareTAAStep>(temporal);
 		pipeline->addStep(pipeline->own(std::unique_ptr<RenderStep>(step)));
 
-		auto effect = addPostProcessing(pipeline, step, scale, client);
+		auto effect = addPostProcessing(pipeline, step, scale, client, temporal.get(), camera_effects.get());
+		if (temporal)
+			pipeline->addStep<FinishTAAStep>(temporal);
+		if (camera_effects)
+			pipeline->addStep<FinishCameraEffectsStep>(camera_effects);
 		effect->setRenderTarget(pipeline->getOutput());
 		step = pipeline;
 	}

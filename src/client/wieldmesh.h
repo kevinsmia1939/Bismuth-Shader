@@ -177,7 +177,7 @@ private:
 
 std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 		const std::string &image_name, const TileAnimationParams &animation,
-		int& result_frame_length_ms);
+		int& result_frame_length_ms, bool mesh_filter = true, bool normal_map = false);
 
 scene::SMesh *getExtrudedMesh(video::ITexture *texture,
 	video::ITexture *overlay_texture = nullptr);

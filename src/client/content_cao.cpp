@@ -10,6 +10,8 @@
 #include <AnimatedMeshSceneNode.h>
 #include "client/client.h"
 #include "client/renderingengine.h"
+#include "client/render/voxel_lighting.h"
+#include "client/render/cloud_shadows.h"
 #include "client/sound.h"
 #include "client/texturesource.h"
 #include "client/mapblock_mesh.h"
@@ -608,6 +610,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 
 			ShaderFeatures features;
 			features.skinning = hw_skin;
+			features.emissive_surface = m_prop.glow != 0 || !m_prop.shaded;
 			u32 shader_id = shader_source->getShader(
 					"object_shader", material_type, NDT_NORMAL, features);
 			m_material_type = shader_source->getShaderInfo(shader_id).material;
@@ -1099,8 +1102,34 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 
 	// Make sure m_is_visible is always applied
 	scene::ISceneNode *node = getSceneNode();
-	if (node)
+	if (node) {
 		node->setVisible(m_is_visible);
+		if (auto *core = RenderingEngine::get_rendering_core()) {
+			if (auto *shadows = core->get_cloud_shadows()) {
+				for (u32 i = 0; i < node->getMaterialCount(); ++i) {
+					auto &layer = node->getMaterial(i).TextureLayers[7];
+					layer.Texture = m_prop.glow == 0 && m_prop.shaded ? shadows->getTexture() : nullptr;
+					layer.MinFilter = video::ETMINF_LINEAR_MIPMAP_NEAREST;
+					layer.MagFilter = video::ETMAGF_LINEAR;
+					layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+					layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+					layer.AnisotropicFilter = 0;
+				}
+			}
+		}
+		if (auto *volume = RenderingEngine::get_voxel_lighting()) {
+			for (u32 i = 0; i < node->getMaterialCount(); ++i) {
+				auto &layer = node->getMaterial(i).TextureLayers[2];
+				// Explicitly glowing/full-bright objects keep their authored lighting.
+				layer.Texture = m_prop.glow == 0 && m_prop.shaded ? volume->getTexture() : nullptr;
+				layer.MinFilter = video::ETMINF_LINEAR_MIPMAP_NEAREST;
+				layer.MagFilter = video::ETMAGF_LINEAR;
+				layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+				layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+				layer.AnisotropicFilter = 0;
+			}
+		}
+	}
 
 	if(getParent() != NULL) // Attachments should be glued to their parent by Irrlicht
 	{
@@ -1500,7 +1529,7 @@ bool GenericCAO::visualExpiryRequired(const ObjectProperties &new_) const
 	 * - nametag props: handled by updateNametag()
 	 * - textures:      handled by updateTextures()
 	 * - sprite props:  handled by updateTextureAnim()
-	 * - glow:          handled by updateLight()
+	 * - glow intensity: handled by updateLight(); entering/leaving glow changes shaders
 	 * - any other properties that do not change appearance
 	 */
 
@@ -1508,6 +1537,7 @@ bool GenericCAO::visualExpiryRequired(const ObjectProperties &new_) const
 		(new_.visual == OBJECTVISUAL_WIELDITEM || new_.visual == OBJECTVISUAL_ITEM);
 	// Ordered to compare primitive types before std::vectors
 	return old.backface_culling != new_.backface_culling ||
+		(old.glow == 0) != (new_.glow == 0) ||
 		old.is_visible != new_.is_visible ||
 		old.shaded != new_.shaded ||
 		old.use_texture_alpha != new_.use_texture_alpha ||

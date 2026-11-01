@@ -6,6 +6,7 @@
 
 #include "nodedef.h"
 #include "tile.h"
+#include "liquid_geometry.h"
 
 struct MeshMakeData;
 struct MeshCollector;
@@ -94,12 +95,7 @@ private:
 
 // liquid-specific
 	struct LiquidData {
-		struct NeighborData {
-			f32 level;
-			content_t content;
-			bool is_same_liquid;
-			bool top_is_same_liquid;
-		};
+		using NeighborData = LiquidGeometry::Neighbor;
 
 		bool top_is_same_liquid;
 		bool draw_bottom;

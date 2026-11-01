@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "game_internal.h"
+#include "frame_benchmark.h"
 
 #include <cmath>
 #include <csignal>
@@ -38,6 +39,10 @@
 #include "server.h"
 #include "settings.h"
 #include "shader.h"
+#include "render/voxel_lighting.h"
+#include "render/volumetric_clouds.h"
+#include "render/cloud_shadows.h"
+#include "render/water_volume.h"
 #include "sound_maker.h"
 #include "threading/lambda.h"
 #include "translation.h"
@@ -63,6 +68,7 @@ class GameGlobalShaderUniformSetter : public IShaderUniformSetter
 {
 	Sky *m_sky;
 	Client *m_client;
+	Game *m_game;
 
 	CachedVertexShaderSetting<float> m_animation_timer_vertex{"animationTimer"};
 	CachedPixelShaderSetting<float> m_animation_timer_pixel{"animationTimer"};
@@ -77,14 +83,106 @@ class GameGlobalShaderUniformSetter : public IShaderUniformSetter
 	int m_crack_texture_scale_i = 0;
 	CachedPixelShaderSetting<float> m_crack_texture_scale{"crackTextureScale"};
 	CachedPixelShaderSetting<float, 3> m_day_light{"dayLight"};
+	bool m_voxel_bound = false;
+	CachedPixelShaderSetting<float, 3> m_voxel_origin{"voxelOrigin"};
+	CachedPixelShaderSetting<float, 4> m_voxel_params{"voxelParams"};
+	CachedPixelShaderSetting<float> m_voxel_dynamic_count{"voxelDynamicCount"};
+	CachedPixelShaderSetting<float, VoxelLighting::MAX_DYNAMIC_LIGHTS * 4> m_voxel_dynamic_position{"voxelDynamicPosition"};
+	CachedPixelShaderSetting<float, VoxelLighting::MAX_DYNAMIC_LIGHTS * 4> m_voxel_dynamic_emission{"voxelDynamicEmission"};
+	bool m_reported_voxel_dynamic = false;
+	bool m_voxel_fog;
+	bool m_voxel_water;
+	bool m_reported_voxel_water = false;
+	CachedPixelShaderSetting<float, 3> m_voxel_water_params{"voxelWaterParams"};
+	bool m_reported_voxel_fog = false;
+	bool m_reported_voxel_fog_hidden = false;
+	CachedPixelShaderSetting<float> m_voxel_fog_strength{"voxelFogStrength"};
+	CachedPixelShaderSetting<float> m_voxel_fog_anisotropy{"voxelFogAnisotropy"};
 	CachedPixelShaderSetting<float, 3> m_minimap_yaw{"yawVec"};
 	CachedPixelShaderSetting<float, 3> m_camera_offset_pixel{"cameraOffset"};
 	CachedVertexShaderSetting<float, 3> m_camera_offset_vertex{"cameraOffset"};
 	CachedPixelShaderSetting<float, 3> m_camera_position_pixel{"cameraPosition"};
+	bool m_reported_material_eye[2] = {};
 	CachedVertexShaderSetting<float, 3> m_camera_position_vertex{"cameraPosition"};
 	CachedVertexShaderSetting<float, 2> m_texel_size0_vertex{"texelSize0"};
 	CachedPixelShaderSetting<float, 2> m_texel_size0_pixel{"texelSize0"};
 	v2f m_texel_size0;
+	bool m_ssao_pass;
+	bool m_ssao_surface_bound = false;
+	bool m_reported_ssao_surface = false;
+	CachedPixelShaderSetting<float> m_ssao_surface_ready{"ssaoSurfaceReady"};
+	bool m_ssao_emission_bound = false;
+	bool m_reported_ssao_emission = false;
+	CachedPixelShaderSetting<float> m_ssao_emission_ready{"ssaoEmissionReady"};
+	bool m_scene_lighting_pass;
+	bool m_clouds_pass;
+	bool m_water_medium_pass;
+	bool m_water_geometry;
+	bool m_node_shader;
+	bool m_water_waving_enabled;
+	CachedVertexShaderSetting<float, 3> m_water_mesh_waves{"waterMeshWaves"};
+	bool m_water_volume_bound = false;
+	CachedPixelShaderSetting<float, 3> m_water_volume_origin{"waterVolumeOrigin"};
+	CachedPixelShaderSetting<float, 3> m_water_absolute_origin{"waterAbsoluteOrigin"};
+	CachedPixelShaderSetting<float, 4> m_water_volume_params{"waterVolumeParams"};
+	CachedPixelShaderSetting<float, 4> m_water_medium_params{"waterMediumParams"};
+	CachedPixelShaderSetting<float, 3> m_water_scatter_color{"waterScatterColor"};
+	CachedPixelShaderSetting<float, 4> m_water_light{"waterLight"};
+	CachedPixelShaderSetting<float, 3> m_water_light_color{"waterLightColor"};
+	CachedPixelShaderSetting<float, 3> m_water_waves{"waterWaves"};
+	bool m_reported_clouds = false;
+	v3f m_reported_cloud_layer;
+	v2f m_cloud_texture_size;
+	CachedPixelShaderSetting<float, 2> m_cloud_texture{"cloudTextureSize"};
+	CachedPixelShaderSetting<float, 4> m_cloud_layer{"cloudLayer"};
+	CachedPixelShaderSetting<float, 4> m_cloud_params{"cloudParams"};
+	CachedPixelShaderSetting<float, 4> m_cloud_wind{"cloudWind"};
+	CachedPixelShaderSetting<float, 4> m_cloud_light{"cloudLight"};
+	CachedPixelShaderSetting<float, 3> m_cloud_bright{"cloudBright"};
+	CachedPixelShaderSetting<float, 3> m_cloud_ambient{"cloudAmbient"};
+	CachedPixelShaderSetting<float, 3> m_cloud_shadow{"cloudShadow"};
+	bool m_cloud_shadow_generator;
+	bool m_cloud_receiver;
+	bool m_cloud_shadow_bound = false;
+	bool m_reported_cloud_receiver = false;
+	CachedPixelShaderSetting<float, 3> m_cloud_shadow_origin{"cloudShadowOrigin"};
+	CachedPixelShaderSetting<float, 3> m_cloud_shadow_direction{"cloudShadowDirection"};
+	CachedPixelShaderSetting<float, 3> m_cloud_shadow_slab{"cloudShadowSlab"};
+	CachedPixelShaderSetting<float, 4> m_cloud_shadow_params{"cloudShadowParams"};
+	bool m_scene_surface;
+	bool m_volumetric_fog;
+	bool m_water_refraction;
+	bool m_material_maps;
+	v2f m_material_map_bound;
+	CachedPixelShaderSetting<float, 3> m_material_map_flags{"materialMapFlags"};
+	float m_material_normal_mip_bound = 0.0f;
+	CachedPixelShaderSetting<float> m_material_normal_mip{"materialNormalMipmaps"};
+	bool m_reported_material_maps = false;
+	bool m_reported_material_mips = false;
+	CachedPixelShaderSetting<float, 4> m_surface_light{"surfaceLight"};
+	CachedPixelShaderSetting<float, 3> m_surface_light_color{"surfaceLightColor"};
+	int m_reported_surface_light = -1;
+	bool m_reported_surface_active = false;
+	bool m_reported_water_surface_light = false;
+	bool m_water_bound = false;
+	bool m_reported_water_binding = false;
+	CachedPixelShaderSetting<float, 4> m_water_params{"waterParams"};
+	CachedPixelShaderSetting<float, 2> m_water_texel_size{"waterTexelSize"};
+	CachedPixelShaderSetting<float> m_water_camera_inside{"waterCameraInside"};
+	v2f m_water_texel;
+	CachedPixelShaderSetting<float, 16> m_scene_projection{"sceneProjection"};
+	CachedPixelShaderSetting<float, 16> m_scene_view{"sceneView"};
+	CachedPixelShaderSetting<float, 16> m_inverse_view{"inverseView"};
+	CachedPixelShaderSetting<float, 4> m_scene_params{"sceneParams"};
+	CachedPixelShaderSetting<float> m_atmosphere_enabled{"atmosphereEnabled"};
+	CachedPixelShaderSetting<float, 4> m_volume_params{"volumeParams"};
+	CachedPixelShaderSetting<float, 3> m_volume_light_direction{"volumeLightDirection"};
+	CachedPixelShaderSetting<float, 3> m_volume_light_color{"volumeLightColor"};
+	CachedPixelShaderSetting<float> m_volume_shadow_ready{"volumeShadowReady"};
+	bool m_volume_shadow_bound = false;
+	CachedPixelShaderSetting<float, 16> m_inverse_projection{"inverseProjection"};
+	CachedPixelShaderSetting<float, 2> m_projection_scale{"projectionScale"};
+	CachedPixelShaderSetting<float, 2> m_ssao_params{"ssaoParams"};
 
 	CachedStructPixelShaderSetting<float, 7> m_exposure_params_pixel{
 		"exposureParams",
@@ -127,9 +225,27 @@ public:
 
 	void setSky(Sky *sky) { m_sky = sky; }
 
-	GameGlobalShaderUniformSetter(Sky *sky, Game *game) :
+	GameGlobalShaderUniformSetter(Sky *sky, Game *game,
+			bool ssao_pass, bool scene_lighting_pass, bool clouds_pass, bool node_shader, bool water_medium_pass,
+			bool cloud_shadow_generator, bool cloud_receiver) :
 		m_sky(sky),
-		m_client(game->getClient())
+		m_client(game->getClient()),
+		m_game(game),
+		m_voxel_fog(scene_lighting_pass && useVoxelFogLighting()),
+		m_voxel_water(water_medium_pass && useVoxelWaterLighting()),
+		m_ssao_pass(ssao_pass),
+		m_scene_lighting_pass(scene_lighting_pass),
+		m_clouds_pass(clouds_pass),
+		m_water_medium_pass(water_medium_pass),
+		m_water_geometry((node_shader || water_medium_pass) && waterVolumeEnabled()),
+		m_node_shader(node_shader),
+		m_water_waving_enabled(g_settings->getBool("enable_waving_water")),
+		m_cloud_shadow_generator(cloud_shadow_generator),
+		m_cloud_receiver(cloud_receiver && useCloudShadows()),
+		m_scene_surface(useSceneSurface()),
+		m_volumetric_fog(useVolumetricFog()),
+		m_water_refraction(useWaterRefraction()),
+		m_material_maps(node_shader && useMaterialMaps())
 	{
 		for (auto &name : SETTING_CALLBACKS)
 			g_settings->registerChangedCallback(name, settingsCallback, this);
@@ -150,12 +266,117 @@ public:
 		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
 		video::SColorf sunlight;
 		get_sunlight_color(&sunlight, daynight_ratio);
+		const auto &lighting = m_client->getEnv().getLocalPlayer()->getLighting();
 		m_day_light.set(sunlight, services);
+		if (m_node_shader || m_scene_lighting_pass) {
+			const auto &light = m_game->getSurfaceLight();
+			const auto *camera_node = m_client->getCamera()->getCameraNode();
+			// Preview/wield scene managers use their own camera coordinate system.
+			// Only world-camera draws can consume this world-space source packet.
+			const bool world_view = m_scene_lighting_pass || services->getVideoDriver()->getTransform(video::ETS_VIEW) ==
+				camera_node->getViewMatrix();
+			const float packet[] = {light.direction.X, light.direction.Y, light.direction.Z,
+				world_view ? light.strength : 0.0f};
+			m_surface_light.set(packet, services);
+			m_surface_light_color.set(light.color, services);
+			if (world_view && m_water_bound && !m_reported_water_surface_light &&
+					services->getPixelShaderConstantID("surfaceLight") >= 0 &&
+					services->getPixelShaderConstantID("surfaceLightColor") >= 0) {
+				infostream << "Water surface directional light: shader bound" << std::endl;
+				m_reported_water_surface_light = true;
+			}
+			const int source = static_cast<int>(light.source);
+			const bool active = light.strength > 0;
+			if (world_view && (source != m_reported_surface_light || active != m_reported_surface_active)) {
+				if (services->getPixelShaderConstantID("surfaceLight") >= 0 &&
+						services->getPixelShaderConstantID("surfaceLightColor") >= 0)
+					infostream << "Surface directional light: source=" << source <<
+						" active=" << active << std::endl;
+				m_reported_surface_light = source;
+				m_reported_surface_active = active;
+			}
+		}
+		if (voxelLightingEnabled()) {
+			auto *volume = RenderingEngine::get_voxel_lighting();
+			const bool ready = m_voxel_bound && volume && volume->getTexture() && volume->getSize() > 0;
+			if (ready) {
+				const auto origin = volume->getOrigin();
+				const auto offset = m_client->getCamera()->getOffset();
+				m_voxel_origin.set(v3f((origin.X - offset.X) * BS,
+					(origin.Y - offset.Y) * BS, (origin.Z - offset.Z) * BS), services);
+			}
+			const float params[] = { ready ? 1.0f : 0.0f,
+				g_settings->getFloat("voxel_light_strength", 0.0f, 4.0f),
+				g_settings->getFloat("voxel_gi_strength", 0.0f, 2.0f),
+				ready ? float(volume->getSize()) : 0.0f };
+			m_voxel_params.set(params, services);
+			if (m_voxel_water) {
+				const float water_params[] = {
+					g_settings->getFloat("voxel_water_strength",0.0f,2.0f),
+					g_settings->getFloat("voxel_water_anisotropy",-0.85f,0.85f),
+					float(core::clamp(g_settings->getS32("voxel_water_steps"),4,32)) };
+				m_voxel_water_params.set(water_params,services);
+				if (ready && !m_reported_voxel_water && services->getPixelShaderConstantID("voxelWaterParams") >= 0) {
+					infostream << "Voxel water: atlas bound at texture4 phase=" << water_params[1]
+						<< " steps=" << water_params[2] << std::endl;
+					m_reported_voxel_water = true;
+				}
+			}
+			if (m_voxel_fog) {
+				const float strength = g_settings->getFloat("voxel_fog_strength", 0.0f, 2.0f);
+				m_voxel_fog_strength.set(&strength, services);
+				const float anisotropy = g_settings->getFloat("voxel_fog_anisotropy", -0.85f, 0.85f);
+				m_voxel_fog_anisotropy.set(&anisotropy, services);
+				if (ready && !m_reported_voxel_fog && services->getPixelShaderConstantID("voxelFogStrength") >= 0 &&
+						services->getPixelShaderConstantID("voxelFogAnisotropy") >= 0) {
+					infostream << "Voxel fog: atlas bound at texture4" << std::endl;
+					infostream << "Voxel fog: phase bound=" << anisotropy << std::endl;
+					m_reported_voxel_fog = true;
+				}
+			}
+			if (voxelDynamicDirectEnabled()) {
+				std::array<float, VoxelLighting::MAX_DYNAMIC_LIGHTS * 4> positions{}, emissions{};
+				float count = 0;
+				if (ready && volume->usesDynamicDirect()) {
+					const auto origin = volume->getOrigin();
+					const auto &sources = volume->getDynamicSources();
+					for (size_t i = 0; i < sources.size(); ++i) {
+						const auto p = sources[i].position - v3f(origin.X, origin.Y, origin.Z);
+						const auto e = sources[i].emission;
+						positions[i * 4] = p.X; positions[i * 4 + 1] = p.Y; positions[i * 4 + 2] = p.Z;
+						emissions[i * 4] = e.X; emissions[i * 4 + 1] = e.Y; emissions[i * 4 + 2] = e.Z;
+					}
+					count = sources.size();
+				}
+				m_voxel_dynamic_count.set(&count, services);
+				m_voxel_dynamic_position.set(positions.data(), services);
+				m_voxel_dynamic_emission.set(emissions.data(), services);
+				if (count > 0 && !m_reported_voxel_dynamic &&
+						services->getPixelShaderConstantID("voxelDynamicPosition") >= 0 &&
+						services->getPixelShaderConstantID("voxelDynamicEmission") >= 0 &&
+						services->getPixelShaderConstantID("voxelDynamicCount") >= 0) {
+					infostream << "Voxel dynamic direct: shader bound" << std::endl;
+					if (m_voxel_fog)
+						infostream << "Voxel fog: moving sources bound" << std::endl;
+					if (m_voxel_water)
+						infostream << "Voxel water: moving sources bound" << std::endl;
+					m_reported_voxel_dynamic = true;
+				}
+			}
+		}
 
 		u32 animation_timer = m_client->getEnv().getFrameTime() % 1000000;
 		float animation_timer_f = (float)animation_timer / 100000.f;
 		m_animation_timer_vertex.set(&animation_timer_f, services);
 		m_animation_timer_pixel.set(&animation_timer_f, services);
+		v3f water_waves;
+		if (m_node_shader || m_water_geometry)
+			water_waves = WaterVolume::waveParameters(m_client->getEnv().getFrameTime(), m_water_waving_enabled);
+		if (auto *core = RenderingEngine::get_rendering_core())
+			if (auto *volume = core->get_water_volume(); volume && volume->getTexture())
+				water_waves = volume->getWaves();
+		if (m_node_shader)
+			m_water_mesh_waves.set(water_waves, services);
 
 		float animation_timer_delta_f = (float)m_client->getEnv().getFrameTimeDelta() / 100000.f;
 		m_animation_timer_delta_vertex.set(&animation_timer_delta_f, services);
@@ -170,12 +391,322 @@ public:
 		m_camera_offset_pixel.set(offset, services);
 		m_camera_offset_vertex.set(offset, services);
 
-		v3f camera_position = m_client->getCamera()->getPosition();
+		auto *camera = m_client->getCamera();
+		auto *camera_node = camera->getCameraNode();
+		// The camera node is a root child and includes the current stereo eye
+		// displacement. Camera::getPosition() describes the central viewpoint.
+		const v3f camera_position = camera_node->getPosition() + offset;
 		m_camera_position_pixel.set(camera_position, services);
-		m_camera_position_pixel.set(camera_position, services);
+		m_camera_position_vertex.set(camera_position, services);
+		if (m_material_maps) {
+			const v3f right = camera_node->getUpVector().crossProduct(camera->getDirection());
+			const float eye_offset = (camera_position - camera->getPosition()).dotProduct(right);
+			const unsigned eye = eye_offset > 0 ? 1 : 0;
+			if (std::abs(eye_offset) > 0.001f && !m_reported_material_eye[eye] &&
+					services->getPixelShaderConstantID("cameraPosition") >= 0) {
+				infostream << "Material camera: eye offset=" << eye_offset << std::endl;
+				m_reported_material_eye[eye] = true;
+			}
+		}
+		if (m_water_geometry) {
+			auto *core = RenderingEngine::get_rendering_core();
+			auto *volume = core ? core->get_water_volume() : nullptr;
+			const bool ready = m_water_volume_bound && volume && volume->getSize() > 0;
+			if (ready) {
+				const auto origin = volume->getOrigin();
+				const v3f absolute(origin.X * BS, origin.Y * BS, origin.Z * BS);
+				m_water_volume_origin.set(absolute - offset, services);
+				m_water_absolute_origin.set(absolute, services);
+			}
+			const float params[] = { ready ? 1.0f : 0.0f, ready ? float(volume->getSize()) : 0.0f,
+				g_settings->getFloat("water_refraction_distance", 1.0f, 64.0f) * BS,
+				g_settings->getFloat("water_caustics_strength", 0.0f, 2.0f) };
+			m_water_volume_params.set(params, services);
+			const v3f eye_position = m_client->getCamera()->getCameraNode()->getAbsolutePosition() + offset;
+			const bool inside = ready && volume->containsWater(eye_position);
+			const float index_inside = inside ? 1.0f : 0.0f;
+			m_water_camera_inside.set(&index_inside, services);
+			const float medium[] = { inside ? 1.0f : 0.0f,
+				g_settings->getFloat("water_absorption_strength", 0.0f, 4.0f), 0.0f, 0.0f };
+			m_water_medium_params.set(medium, services);
+			if (m_water_medium_pass && core) {
+				core->set_water_medium_applied(inside);
+				core->set_water_medium_handled(ready && volume->hasGeometry(eye_position));
+			}
+			auto &map = m_client->getEnv().getClientMap();
+			v3s16 liquid_node = floatToInt(eye_position, BS);
+			if (ready) volume->findWater(eye_position, &liquid_node);
+			const auto &f = m_client->ndef()->get(map.getNode(liquid_node));
+			video::SColorf scatter(f.post_effect_color);
+			if (f.post_effect_color_shaded) {
+				const video::SColorf local(map.getCameraLightColor());
+				scatter.r *= local.r; scatter.g *= local.g; scatter.b *= local.b;
+			}
+			m_water_scatter_color.set(v3f(scatter.r, scatter.g, scatter.b), services);
+			const auto &source = m_game->getSurfaceLight();
+			const float light[] = { source.direction.X, source.direction.Y, source.direction.Z,
+				source.strength };
+			m_water_light.set(light, services);
+			m_water_light_color.set(source.color, services);
+			m_water_waves.set(water_waves, services);
+		}
 
 		m_texel_size0_vertex.set(m_texel_size0, services);
 		m_texel_size0_pixel.set(m_texel_size0, services);
+		if (m_material_maps) {
+			m_material_map_flags.set(v3f(m_material_map_bound.X, m_material_map_bound.Y,
+				g_settings->getFloat("material_map_normal_strength", 0.0f, 2.0f)), services);
+			m_material_normal_mip.set(&m_material_normal_mip_bound, services);
+			if (m_material_normal_mip_bound > 0.5f && !m_reported_material_mips &&
+					services->getPixelShaderConstantID("materialNormalMipmaps") >= 0) {
+				infostream << "Material normal mipmaps: shader bound" << std::endl;
+				m_reported_material_mips = true;
+			}
+		}
+		if (m_water_refraction) {
+			const float water_params[] = { m_water_bound ? 1.0f : 0.0f,
+				g_settings->getFloat("water_absorption_strength", 0.0f, 4.0f),
+				g_settings->getFloat("water_refraction_distance", 1.0f, 64.0f) * BS,
+				g_settings->getFloat("water_refraction_strength", 0.0f, 1.0f) };
+			m_water_params.set(water_params, services);
+			m_water_texel_size.set(m_water_texel, services);
+			if (m_water_bound)
+				m_scene_projection.set(m_client->getCamera()->getCameraNode()->getProjectionMatrix(), services);
+		}
+
+		if (m_ssao_pass || m_scene_lighting_pass || m_water_bound || m_clouds_pass || m_water_medium_pass) {
+			const auto &projection = m_client->getCamera()->getCameraNode()->getProjectionMatrix();
+			core::matrix4 inverse_projection;
+			projection.getInverse(inverse_projection);
+			m_inverse_projection.set(inverse_projection, services);
+			m_projection_scale.set(v2f(projection[0], projection[5]), services);
+			m_ssao_params.set(v2f(
+				g_settings->getFloat("ssao_radius", 0.1f, 4.0f) * BS,
+				g_settings->getFloat("ssao_strength", 0.0f, 2.0f)), services);
+		}
+		if (m_ssao_pass) {
+			const float ready = m_ssao_surface_bound ? 1.0f : 0.0f;
+			m_ssao_surface_ready.set(&ready, services);
+			const float emission_ready = m_ssao_emission_bound ? 1.0f : 0.0f;
+			m_ssao_emission_ready.set(&emission_ready, services);
+			if (m_ssao_emission_bound && !m_reported_ssao_emission) {
+				infostream << "SSAO: emission mask bound" << std::endl;
+				m_reported_ssao_emission = true;
+			}
+			if (m_ssao_surface_bound && !m_reported_ssao_surface) {
+				infostream << "SSAO: surface guide bound" << std::endl;
+				m_reported_ssao_surface = true;
+			}
+		}
+		if (m_water_medium_pass || m_water_bound) {
+			core::matrix4 inverse_view;
+			m_client->getCamera()->getCameraNode()->getViewMatrix().getInverse(inverse_view);
+			m_inverse_view.set(inverse_view, services);
+		}
+
+		if (m_scene_surface || m_scene_lighting_pass || m_water_bound) {
+			const auto &view = m_client->getCamera()->getCameraNode()->getViewMatrix();
+			m_scene_view.set(view, services);
+		}
+		if (m_clouds_pass) {
+			core::matrix4 inverse_view;
+			m_client->getCamera()->getCameraNode()->getViewMatrix().getInverse(inverse_view);
+			m_inverse_view.set(inverse_view, services);
+			m_cloud_texture.set(m_cloud_texture_size, services);
+			auto *clouds = m_game->getClouds();
+			auto *core = RenderingEngine::get_rendering_core();
+			const bool ready = clouds && clouds->getParameters().thickness >= 0.01f &&
+				m_sky && m_sky->getCloudsVisible() && useVolumetricClouds() &&
+				core && core->get_cloud_noise() && core->get_cloud_noise()->getTexture();
+			const float params[] = { ready ? 1.0f : 0.0f,
+				float(core::clamp(g_settings->getS32("volumetric_cloud_samples"), 8, 64)),
+				g_settings->getFloat("volumetric_cloud_distance", 128.0f, 4096.0f) * BS,
+				g_settings->getFloat("volumetric_cloud_detail", 0.0f, 1.0f) };
+			m_cloud_params.set(params, services);
+			if (core) core->set_cloud_frame({});
+			if (clouds && m_sky) {
+				const auto &layer = clouds->getParameters();
+				const float data[] = { layer.height * BS, layer.thickness * BS,
+					core::clamp(layer.density, 0.0f, 1.0f),
+					g_settings->getFloat("volumetric_cloud_density", 0.0f, 1.0f) / BS *
+					layer.color_bright.getAlpha() / 255.0f };
+				m_cloud_layer.set(data, services);
+				const v3f reported_layer(layer.height, layer.thickness, layer.density);
+				if (ready && data[2] > 0.0f && data[3] > 0.0f &&
+						(!m_reported_clouds || reported_layer != m_reported_cloud_layer)) {
+					infostream << "Volumetric clouds: active height=" << layer.height
+						<< " thickness=" << layer.thickness << " coverage=" << layer.density << std::endl;
+					m_reported_clouds = true;
+					m_reported_cloud_layer = reported_layer;
+				}
+				const auto origin = clouds->getOrigin();
+				const float wind[] = { origin.X, origin.Y,
+					float(clouds->getSeed() % 997) * 0.113f,
+					float(clouds->getSeed() % 991) * 0.137f };
+				m_cloud_wind.set(wind, services);
+				m_cloud_bright.set(clouds->getColor(), services);
+				m_cloud_ambient.set(layer.color_ambient, services);
+				m_cloud_shadow.set(layer.color_shadow, services);
+				const bool sun = m_sky->getSunDirection().Y >= m_sky->getMoonDirection().Y;
+				v3f direction = sun ? m_sky->getSunDirection() : m_sky->getMoonDirection();
+				bool visible = sun ? m_sky->getSunVisible() : m_sky->getMoonVisible();
+				float intensity = sun ? 1.0f : 0.5f;
+				const bool custom = lighting.shadow_direction.getLengthSQ() > 0.0f;
+				if (custom) {
+					direction = lighting.shadow_direction;
+					visible = true;
+					intensity = 1.0f;
+				}
+				direction.normalize();
+				const float light[] = { direction.X, direction.Y, direction.Z,
+					visible ? intensity * (custom ? 1.0f : core::clamp(direction.Y * 8.0f, 0.0f, 1.0f)) : 0.0f };
+				m_cloud_light.set(light, services);
+				cloud_field::RenderParameters rendered;
+				auto &field = rendered.density;
+				field.bottom = data[0];
+				field.thickness = data[1];
+				field.coverage = data[2];
+				field.extinction = data[3];
+				field.detail = params[3];
+				field.wind = v2f(wind[0], wind[1]);
+				field.seed = v2f(wind[2], wind[3]);
+				auto rgb = [](video::SColor color) {
+					const video::SColorf c(color);
+					return v3f(c.r, c.g, c.b);
+				};
+				rendered.bright = rgb(clouds->getColor());
+				rendered.ambient = rgb(layer.color_ambient);
+				rendered.shadow = rgb(layer.color_shadow);
+				rendered.light_direction = direction;
+				rendered.light_intensity = light[3];
+				rendered.distance = params[2];
+				rendered.samples = int(params[1]);
+				rendered.ready = ready;
+				if (core) core->set_cloud_frame(rendered);
+				if (m_cloud_shadow_generator && core && core->get_cloud_shadows()) {
+					auto *map = core->get_cloud_shadows();
+					map->prepare(field, direction, ready && data[2] > 0 && data[3] > 0 && light[3] > 0);
+					const auto &frame = map->getFrame();
+					m_cloud_shadow_origin.set(frame.origin, services);
+					m_cloud_shadow_slab.set(v3f(frame.thickness, frame.sign, frame.reciprocalResolution), services);
+					const float mapping[] = {0.0f, 1.0f/frame.span, 0.0f, 0.0f};
+					m_cloud_shadow_params.set(mapping, services);
+				}
+			}
+		}
+		if (m_cloud_receiver) {
+			auto *core = RenderingEngine::get_rendering_core();
+			auto *map = core ? core->get_cloud_shadows() : nullptr;
+			const bool ready = m_cloud_shadow_bound && map && map->ready();
+			const auto frame = map ? map->getFrame() : CloudShadowFrame{};
+			m_cloud_shadow_origin.set(frame.origin-offset, services);
+			m_cloud_shadow_direction.set(frame.direction, services);
+			m_cloud_shadow_slab.set(v3f(frame.thickness, frame.sign, 0), services);
+			const float horizon = core::clamp((std::abs(frame.direction.Y)-0.02f)/0.06f, 0.0f, 1.0f);
+			const float params[] = {ready ? 1.0f : 0.0f, 1.0f/frame.span,
+				g_settings->getFloat("cloud_shadow_strength", 0.0f, 1.0f), horizon*horizon*(3.0f-2.0f*horizon)};
+			m_cloud_shadow_params.set(params, services);
+			if (ready && !m_reported_cloud_receiver) {
+				infostream << "Cloud shadows: receiver bound " << (m_node_shader ? "nodes" : m_scene_lighting_pass ? "fog" : "objects") << std::endl;
+				m_reported_cloud_receiver = true;
+			}
+		}
+		if (m_scene_lighting_pass) {
+			auto *camera = m_client->getCamera()->getCameraNode();
+			m_scene_projection.set(camera->getProjectionMatrix(), services);
+			core::matrix4 inverse_view;
+			camera->getViewMatrix().getInverse(inverse_view);
+			m_inverse_view.set(inverse_view, services);
+			const float params[] = {
+				g_settings->getFloat("atmosphere_density", 0.0f, 0.1f) / BS,
+				g_settings->getFloat("water_reflection_strength", 0.0f, 1.0f),
+				g_settings->getFloat("indirect_light_strength", 0.0f, 1.0f),
+				g_settings->getFloat("indirect_light_radius", 0.5f, 8.0f) * BS
+			};
+			m_scene_params.set(params, services);
+			// Preserve game-defined underwater/solid-node fog and sky overrides.
+			const v3f eye = camera->getAbsolutePosition() + offset;
+			auto *render_core = RenderingEngine::get_rendering_core();
+			auto *water_volume = render_core ? render_core->get_water_volume() : nullptr;
+			v3s16 liquid_node = floatToInt(eye, BS);
+			if (water_volume) water_volume->findWater(eye, &liquid_node);
+			const auto node = m_client->getEnv().getClientMap().getNode(liquid_node);
+			const auto &features = m_client->ndef()->get(node);
+			const float inside_water = water_volume && water_volume->getTexture() ?
+				(water_volume->containsWater(eye) ? 1.0f : 0.0f) :
+				(WaterVolume::eligible(node, m_client->ndef()) ? 1.0f : 0.0f);
+			m_water_camera_inside.set(&inside_water, services);
+			video::SColorf reflection_color(features.post_effect_color);
+			if (features.post_effect_color_shaded) {
+				const video::SColorf local(m_client->getEnv().getClientMap().getCameraLightColor());
+				reflection_color.r *= local.r; reflection_color.g *= local.g; reflection_color.b *= local.b;
+			}
+			m_water_scatter_color.set(v3f(reflection_color.r, reflection_color.g, reflection_color.b), services);
+			const bool represented_liquid = water_volume && water_volume->hasGeometry(eye) &&
+				WaterVolume::eligible(node, m_client->ndef());
+			auto *voxel = RenderingEngine::get_voxel_lighting();
+			const bool local_fog = useVoxelFogLighting() && voxel && voxel->getTexture() &&
+				g_settings->getFloat("voxel_fog_strength", 0.0f, 2.0f) > 0.0f &&
+				(g_settings->getFloat("voxel_light_strength", 0.0f, 4.0f) > 0.0f ||
+				 g_settings->getFloat("voxel_gi_strength", 0.0f, 2.0f) > 0.0f);
+			float atmosphere_enabled = inside_water < 0.5f && (!features.isLiquid() || represented_liquid) && features.light_propagates &&
+				(m_sky->getSunVisible() || (m_volumetric_fog &&
+					(m_sky->getMoonVisible() || lighting.shadow_direction.getLengthSQ() > 0.0f || local_fog))) ? 1.0f : 0.0f;
+			m_atmosphere_enabled.set(&atmosphere_enabled, services);
+			if (atmosphere_enabled > 0.5f && local_fog && m_voxel_fog && m_voxel_bound &&
+					!m_reported_voxel_fog_hidden && !m_sky->getSunVisible() && !m_sky->getMoonVisible() &&
+					services->getPixelShaderConstantID("voxelFogStrength") >= 0) {
+				infostream << "Voxel fog: hidden-sky transport active" << std::endl;
+				m_reported_voxel_fog_hidden = true;
+			}
+			if (m_volumetric_fog) {
+				const float volume_params[] = {
+					g_settings->getFloat("volumetric_fog_distance", 16.0f, 512.0f) * BS,
+					g_settings->getFloat("volumetric_fog_height", 8.0f, 512.0f) * BS,
+					g_settings->getFloat("volumetric_fog_variation", 0.0f, 1.0f),
+					float(core::clamp(g_settings->getS32("volumetric_fog_steps"), 8, 64))
+				};
+				m_volume_params.set(volume_params, services);
+				const float ready = m_volume_shadow_bound ? 1.0f : 0.0f;
+				m_volume_shadow_ready.set(&ready, services);
+				const auto &source = m_game->getSurfaceLight();
+				const v3f direction = source.direction;
+				m_volume_light_direction.set(direction, services);
+				const v3f light_color = source.color * (source.strength *
+					std::max(lighting.volumetric_light_strength, 0.0f));
+				m_volume_light_color.set(light_color, services);
+				if (render_core) {
+					FogRenderParameters frame;
+					frame.ready = atmosphere_enabled > 0.5f && params[0] > 0;
+					frame.density = params[0];
+					frame.distance = volume_params[0]; frame.height = volume_params[1];
+					frame.variation = volume_params[2]; frame.steps = int(volume_params[3]);
+					frame.direction = direction; frame.light = light_color;
+					frame.shadow_ready = m_volume_shadow_bound;
+					frame.voxel_ready = local_fog && m_voxel_bound;
+					if (frame.voxel_ready) {
+						frame.voxel_strength = v3f(g_settings->getFloat("voxel_fog_strength", 0.0f, 2.0f),
+							g_settings->getFloat("voxel_light_strength", 0.0f, 4.0f),
+							g_settings->getFloat("voxel_gi_strength", 0.0f, 2.0f));
+						frame.voxel_light_revision = voxel->getLightRevision();
+						frame.voxel_anisotropy = g_settings->getFloat("voxel_fog_anisotropy", -0.85f, 0.85f);
+						const auto &sources = voxel->getDynamicSources();
+						frame.local_count = std::min(sources.size(), frame.local_sources.size());
+						std::copy_n(sources.begin(), frame.local_count, frame.local_sources.begin());
+					}
+					video::SColor fog_color; video::E_FOG_TYPE fog_type;
+					float start, end, density; bool pixel, range;
+					RenderingEngine::get_video_driver()->getFog(fog_color, fog_type, start, end, density, pixel, range);
+					const video::SColorf ambient(fog_color);
+					frame.ambient = v3f(ambient.r, ambient.g, ambient.b);
+					if (auto *clouds = render_core->get_cloud_shadows()) {
+						frame.clouds = clouds->snapshot();
+						frame.clouds.ready &= m_cloud_shadow_bound;
+					}
+					render_core->set_fog_frame(frame);
+				}
+			}
+		}
 
 		{
 			float tmp = m_crack_animation_length_i;
@@ -185,8 +716,6 @@ public:
 			tmp = m_crack_texture_scale_i;
 			m_crack_texture_scale.set(&tmp, services);
 		}
-
-		const auto &lighting = m_client->getEnv().getLocalPlayer()->getLighting();
 
 		const AutoExposure &exposure_params = lighting.exposure;
 		std::array<float, 7> exposure_buffer = {
@@ -259,6 +788,61 @@ public:
 
 	void onSetMaterial(const video::SMaterial &material) override
 	{
+		if (m_ssao_pass) {
+			m_ssao_surface_bound = useSceneSurface() && material.getTexture(2);
+			m_ssao_emission_bound = useSceneEmissionMask() && material.getTexture(useSceneSurface() ? 3 : 2);
+		}
+		if (m_cloud_receiver) {
+			auto *core = RenderingEngine::get_rendering_core();
+			auto *map = core ? core->get_cloud_shadows() : nullptr;
+			m_cloud_shadow_bound = map && map->getTexture() && material.getTexture(7) == map->getTexture();
+		}
+		if (m_water_geometry) {
+			auto *core = RenderingEngine::get_rendering_core();
+			auto *volume = core ? core->get_water_volume() : nullptr;
+			m_water_volume_bound = volume && volume->getTexture() &&
+				material.getTexture(6) == volume->getTexture();
+		}
+		if (m_clouds_pass) {
+			auto *texture = material.getTexture(2);
+			const auto size = texture ? texture->getSize() : core::dimension2du(1, 1);
+			m_cloud_texture_size = v2f(size.Width, size.Height);
+		}
+		if (m_material_maps) {
+			m_material_map_bound = v2f(material.getTexture(4) ? 1.0f : 0.0f,
+				material.getTexture(5) ? 1.0f : 0.0f);
+			m_material_normal_mip_bound = m_client->getTextureSource()->hasNormalVariance(material.getTexture(4)) ? 1.0f : 0.0f;
+			if (!m_reported_material_maps && (m_material_map_bound.X || m_material_map_bound.Y)) {
+				infostream << "Material maps: normal=" << m_material_map_bound.X
+					<< " ORM=" << m_material_map_bound.Y << std::endl;
+				m_reported_material_maps = true;
+			}
+		}
+		if (m_water_refraction) {
+			auto *core = RenderingEngine::get_rendering_core();
+			m_water_bound = core && core->get_water_color() && core->get_water_depth() &&
+				material.getTexture(1) == core->get_water_color() &&
+				material.getTexture(2) == core->get_water_depth();
+			if (m_water_bound) {
+				const auto size = core->get_water_color()->getSize();
+				m_water_texel = v2f(1.0f / size.Width, 1.0f / size.Height);
+				if (!m_reported_water_binding) {
+					infostream << "Water refraction: bound opaque scene " << size.Width
+						<< "x" << size.Height << std::endl;
+					m_reported_water_binding = true;
+				}
+			}
+		}
+		if (m_scene_lighting_pass && m_volumetric_fog) {
+			auto *shadow = RenderingEngine::get_shadow_renderer();
+			m_volume_shadow_bound = shadow && shadow->is_active() &&
+				material.getTexture(ShadowRenderer::TEXTURE_LAYER_SHADOW) == shadow->get_texture();
+		}
+		if (voxelLightingEnabled()) {
+			auto *volume = RenderingEngine::get_voxel_lighting();
+			m_voxel_bound = volume && volume->getTexture() &&
+				material.getTexture((m_voxel_fog || m_voxel_water) ? 4 : 2) == volume->getTexture();
+		}
 		// This is set only for node materials which have a crack, see mapblock_mesh.cpp.
 		auto pair = MapBlockMesh::unpackCrackMaterialParam(material.MaterialTypeParam);
 		m_crack_level_i = pair.first;
@@ -298,7 +882,11 @@ public:
 	{
 		if (str_starts_with(name, "shadow/"))
 			return nullptr;
-		auto *scs = new GameGlobalShaderUniformSetter(m_sky, m_game);
+		auto *scs = new GameGlobalShaderUniformSetter(m_sky, m_game,
+			name == "ssao", name == "scene_lighting" || name == "fog_composite",
+			name == "volumetric_clouds" || name == "cloud_composite" || name == "cloud_shadows",
+			name == "nodes_shader", name == "water_volume", name == "cloud_shadows",
+			name == "nodes_shader" || name == "object_shader" || name == "scene_lighting");
 		if (!m_sky)
 			created_nosky.push_back(scs);
 		return scs;
@@ -479,6 +1067,11 @@ void Game::run()
 	CameraOrientation cam_view_target = {};
 	CameraOrientation cam_view = {};
 	FpsControl draw_times;
+	std::string benchmark_path;
+	g_settings->getNoEx("benchmark_frame_log",benchmark_path);
+	std::string benchmark_progress;
+	g_settings->getNoEx("benchmark_frame_progress", benchmark_progress);
+	FrameBenchmark benchmark(benchmark_path, is_yes(benchmark_progress));
 	f32 dtime; // in seconds
 
 	// Clear the profiler
@@ -515,6 +1108,10 @@ void Game::run()
 		//    m_rendering_engine->run() from this iteration
 		//  + Sleep time until the wanted FPS are reached
 		draw_times.limit(device, &dtime);
+		const auto frame_size = driver->getScreenSize();
+		benchmark.record(draw_times.last_time,dtime,draw_times.busy_time,
+			draw_times.sleep_time,stats.drawtime,frame_size.Width,frame_size.Height,
+			driver->getFrameStats().Drawcalls);
 
 		framemarker.start();
 
@@ -3581,8 +4178,12 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 
 void Game::updateClouds(float dtime)
 {
+	auto *core = RenderingEngine::get_rendering_core();
+	const bool volumetric = useVolumetricClouds() && clouds->getParameters().thickness >= 0.01f &&
+		core && core->get_cloud_noise() &&
+		core->get_cloud_noise()->getTexture();
 	if (this->sky->getCloudsVisible()) {
-		this->clouds->setVisible(true);
+		this->clouds->setVisible(!volumetric);
 		this->clouds->step(dtime);
 		// this->camera->getPosition is not enough for third-person camera.
 		v3f camera_node_position = this->camera->getCameraNode()->getPosition();
@@ -3591,7 +4192,7 @@ void Game::updateClouds(float dtime)
 		camera_node_position.Y   = camera_node_position.Y + camera_offset.Y * BS;
 		camera_node_position.Z   = camera_node_position.Z + camera_offset.Z * BS;
 		this->clouds->update(camera_node_position, this->sky->getCloudColor());
-		if (this->clouds->isCameraInsideCloud() && this->fogEnabled()) {
+		if (!volumetric && this->clouds->isCameraInsideCloud() && this->fogEnabled()) {
 			// If camera is inside cloud and fog is enabled, use cloud's colors as sky colors.
 			video::SColor clouds_dark = this->clouds->getColor().getInterpolated(
 					video::SColor(255, 0, 0, 0), 0.9);
@@ -3699,8 +4300,16 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 	if (isTouchShootlineUsed())
 		draw_crosshair = false;
 
+	video::SColorf voxel_sunlight;
+	get_sunlight_color(&voxel_sunlight, client->getEnv().getDayNightRatio());
+	const auto &voxel_lighting = client->getEnv().getLocalPlayer()->getLighting();
+	m_surface_light = surface_light::select(sky->getSunDirection(), sky->getMoonDirection(),
+		sky->getSunVisible(), sky->getMoonVisible(), voxel_lighting.shadow_direction, voxel_sunlight);
+	// Surfaces, water, fog and diffuse bounce consume one source packet. Its
+	// radiance is linear and fades smoothly through the natural horizon.
 	this->m_rendering_engine->draw_scene(sky_color, this->m_game_ui->m_flags.show_hud,
-			draw_wield_tool, draw_crosshair);
+			draw_wield_tool, draw_crosshair, m_surface_light.direction,
+			m_surface_light.color * m_surface_light.strength);
 
 	/*
 		Profiler graph

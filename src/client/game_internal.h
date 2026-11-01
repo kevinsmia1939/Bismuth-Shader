@@ -3,6 +3,7 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #pragma once
+#include "render/surface_light.h"
 
 #include "game.h"
 
@@ -118,6 +119,8 @@ public:
 	void shutdown();
 
 	Client *getClient() { return client; }
+	const surface_light::Light &getSurfaceLight() const { return m_surface_light; }
+	Clouds *getClouds() { return clouds.get(); }
 
 	// Pre-calculated value
 	int crack_animation_length;
@@ -303,6 +306,7 @@ private:
 	InputHandler *input = nullptr;
 
 	Client *client = nullptr;
+	surface_light::Light m_surface_light;
 	Server *server = nullptr;
 
 	ClientDynamicInfo client_display_info{};

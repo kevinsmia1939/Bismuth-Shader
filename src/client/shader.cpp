@@ -19,8 +19,85 @@
 #include "gettext.h"
 #include "log.h"
 #include "client/tile.h"
+#include "client/render/voxel_lighting.h"
+#include "client/render/volumetric_clouds.h"
+#include "client/render/cloud_shadows.h"
+#include "client/render/water_volume.h"
+#include "client/render/cloud_denoise.h"
+#include "client/render/fog_denoise.h"
 
 #include <mt_opengl.h>
+
+bool supportsSceneSurface()
+{
+	auto *driver = RenderingEngine::get_video_driver();
+	return (driver->getDriverType() == video::EDT_OPENGL ||
+			driver->getDriverType() == video::EDT_OPENGL3) &&
+		driver->queryFeature(video::EVDF_MULTIPLE_RENDER_TARGETS) &&
+		driver->queryTextureFormat(video::ECF_A16B16G16R16F) &&
+		driver->queryFeature(video::EVDF_RENDER_TO_FLOAT_TEXTURE);
+}
+
+bool useSceneSurface()
+{
+	return g_settings->getBool("enable_post_processing") && supportsSceneSurface() &&
+		(g_settings->getBool("enable_screen_space_reflections") ||
+		g_settings->getBool("enable_indirect_lighting"));
+}
+
+bool useSceneEmissionMask()
+{
+	auto *driver = RenderingEngine::get_video_driver();
+	const bool surface = useSceneSurface();
+	const auto limits = driver->getLimits();
+	return g_settings->getBool("enable_post_processing") && g_settings->getBool("enable_ssao") &&
+		g_settings->getBool("enable_ssao_emission_mask") && supportsSceneSurface() && limits.GLVersion.X >= 3 &&
+		driver->queryTextureFormat(video::ECF_R8) && limits.MaxColorAttachments >= (surface ? 3u : 2u) &&
+		limits.MaxMaterialTextures >= (surface ? 4u : 3u);
+}
+
+bool useVolumetricFog()
+{
+	auto *driver = RenderingEngine::get_video_driver();
+	return g_settings->getBool("enable_post_processing") &&
+		g_settings->getBool("enable_atmosphere") &&
+		g_settings->getBool("enable_volumetric_fog") &&
+		(driver->getDriverType() == video::EDT_OPENGL ||
+			driver->getDriverType() == video::EDT_OPENGL3);
+}
+
+bool useWaterRefraction()
+{
+	auto *driver = RenderingEngine::get_video_driver();
+	return g_settings->getBool("enable_post_processing") &&
+		g_settings->getBool("enable_water_refraction") && supportsSceneSurface() &&
+		driver->getLimits().GLVersion.X >= 3;
+}
+
+bool useVoxelFogLighting()
+{
+	return useVolumetricFog() && voxelLightingEnabled() &&
+		g_settings->getBool("enable_voxel_fog_lighting") &&
+		RenderingEngine::get_video_driver()->getLimits().MaxMaterialTextures >= 5;
+}
+
+bool useMaterialMaps()
+{
+	return g_settings->getBool("enable_material_shading") && supportsSceneSurface() &&
+		RenderingEngine::get_video_driver()->getLimits().MaxMaterialTextures >= 6;
+}
+
+bool useVolumetricClouds()
+{
+	auto *driver = RenderingEngine::get_video_driver();
+	return g_settings->getBool("enable_post_processing") &&
+		g_settings->getBool("enable_volumetric_clouds") &&
+		(driver->getDriverType() == video::EDT_OPENGL || driver->getDriverType() == video::EDT_OPENGL3) &&
+		driver->queryFeature(video::EVDF_RENDER_TO_FLOAT_TEXTURE) &&
+		driver->queryTextureFormat(video::ECF_A16B16G16R16F) &&
+		driver->getLimits().MaxMaterialTextures >= 5 &&
+		driver->getLimits().MaxTextureSize >= CloudNoise::HEIGHT;
+}
 
 /*
 	A cache from shader name to shader path
@@ -205,7 +282,68 @@ public:
 
 	void onGenerate(const std::string &name, ShaderConstants &constants) override
 	{
+		if (voxelLightingEnabled())
+			constants["ENABLE_VOXEL_LIGHTING"] = 1;
+		if (voxelDynamicDirectEnabled()) {
+			constants["ENABLE_VOXEL_DYNAMIC_DIRECT"] = 1;
+			constants["MAX_VOXEL_DYNAMIC_LIGHTS"] = int(VoxelLighting::MAX_DYNAMIC_LIGHTS);
+			if (name == "nodes_shader" && useMaterialMaps())
+				constants["ENABLE_VOXEL_MATERIAL_SPECULAR"] = 1;
+		}
+		if (g_settings->getBool("enable_camera_vignette")) {
+			constants["ENABLE_CAMERA_VIGNETTE"] = 1;
+			constants["CAMERA_VIGNETTE_STRENGTH"] =
+				g_settings->getFloat("camera_vignette_strength", 0.0f, 0.75f);
+		}
+		if (g_settings->getBool("enable_atmosphere"))
+			constants["ENABLE_ATMOSPHERE"] = 1;
+		if (useVolumetricFog())
+			constants["ENABLE_VOLUMETRIC_FOG"] = 1;
+		if (name == "scene_lighting" && useVoxelFogLighting()) {
+			constants["ENABLE_VOXEL_FOG_LIGHTING"] = 1;
+		}
+		if (name == "water_volume" && useVoxelWaterLighting())
+			constants["ENABLE_VOXEL_WATER_LIGHTING"] = 1;
+		if (useWaterRefraction())
+			constants["ENABLE_WATER_REFRACTION"] = 1;
+		if (waterVolumeEnabled())
+			constants["ENABLE_WATER_VOLUME"] = 1;
+		if (useMaterialMaps())
+			constants["ENABLE_MATERIAL_MAPS"] = 1;
+		if (useVolumetricClouds()) {
+			constants["ENABLE_VOLUMETRIC_CLOUDS"] = 1;
+			if (g_settings->get("antialiasing") == "taa")
+				constants["CLOUD_TEMPORAL_JITTER"] = 1;
+		}
+		if (name == "volumetric_clouds" && useCloudDenoising()) {
+			constants["ENABLE_CLOUD_DENOISING"] = 1;
+			constants["CLOUD_TEMPORAL_JITTER"] = 1;
+		}
+		if ((name == "scene_lighting" || name == "taa") && useFogDenoising())
+			constants["ENABLE_FOG_DENOISING"] = 1;
+		if ((name == "nodes_shader" || name == "object_shader" || name == "ssao") && useSceneEmissionMask()) {
+			constants["ENABLE_SCENE_EMISSION_MASK"] = 1;
+			constants["SCENE_EMISSION_ATTACHMENT"] = useSceneSurface() ? 2 : 1;
+		}
+		if ((name == "nodes_shader" || name == "object_shader" || name == "scene_lighting") && useCloudShadows())
+			constants["ENABLE_CLOUD_SHADOWS"] = 1;
+		if (useSceneSurface()) {
+			constants["ENABLE_SCENE_SURFACE"] = 1;
+			if (g_settings->getBool("enable_screen_space_reflections"))
+				constants["ENABLE_SCREEN_SPACE_REFLECTIONS"] = 1;
+			if (g_settings->getBool("enable_indirect_lighting"))
+				constants["ENABLE_INDIRECT_LIGHTING"] = 1;
+		}
+		if (g_settings->getBool("enable_material_shading") && supportsSceneSurface()) {
+			constants["ENABLE_MATERIAL_SHADING"] = 1;
+			constants["MATERIAL_ROUGHNESS"] = g_settings->getFloat("material_roughness", 0.2f, 1.0f);
+			constants["MATERIAL_NORMAL_STRENGTH"] = g_settings->getFloat("material_normal_strength", 0.0f, 0.5f);
+		}
+
 		constants["ENABLE_TONE_MAPPING"] = g_settings->getBool("tone_mapping") ? 1 : 0;
+
+		if (g_settings->getBool("enable_water_reflections"))
+			constants["ENABLE_WATER_REFLECTIONS"] = 1;
 
 		if (g_settings->getBool("enable_dynamic_shadows")) {
 			constants["ENABLE_DYNAMIC_SHADOWS"] = 1;
@@ -214,9 +352,6 @@ public:
 
 			if (g_settings->getBool("shadow_poisson_filter"))
 				constants["POISSON_FILTER"] = 1;
-
-			if (g_settings->getBool("enable_water_reflections"))
-				constants["ENABLE_WATER_REFLECTIONS"] = 1;
 
 			if (g_settings->getBool("enable_translucent_foliage"))
 				constants["ENABLE_TRANSLUCENT_FOLIAGE"] = 1;
@@ -228,6 +363,8 @@ public:
 
 			s32 shadow_filter = g_settings->getS32("shadow_filters");
 			constants["SHADOW_FILTER"] = shadow_filter;
+			if (g_settings->getBool("enable_contact_hardening_shadows"))
+				constants["ENABLE_CONTACT_HARDENING_SHADOWS"] = 1;
 
 			float shadow_soft_radius = std::max(1.f,
 				g_settings->getFloat("shadow_soft_radius"));
@@ -278,6 +415,10 @@ class MainShaderUniformSetter : public IShaderUniformSetter
 	CachedPixelShaderSetting<SamplerLayer_t> m_texture1{"texture1"};
 	CachedPixelShaderSetting<SamplerLayer_t> m_texture2{"texture2"};
 	CachedPixelShaderSetting<SamplerLayer_t> m_texture3{"texture3"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture4{"texture4"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture5{"texture5"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture6{"texture6"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture7{"texture7"};
 
 	// common material variables passed to shader
 	video::SColor m_material_color;
@@ -325,6 +466,14 @@ public:
 		m_texture2.set(&tex_id, services);
 		tex_id = 3;
 		m_texture3.set(&tex_id, services);
+		tex_id = 4;
+		m_texture4.set(&tex_id, services);
+		tex_id = 5;
+		m_texture5.set(&tex_id, services);
+		tex_id = 6;
+		m_texture6.set(&tex_id, services);
+		tex_id = 7;
+		m_texture7.set(&tex_id, services);
 
 		video::SColorf colorf(m_material_color);
 		m_material_color_setting.set(colorf, services);
@@ -832,7 +981,51 @@ void ShaderSource::generateShader(ShaderInfo &shaderinfo)
 		throw ShaderException(fmtgettext("Failed to find \"%s\" shader files.", name.c_str()));
 	}
 
+	if (name == "water_volume" && useVoxelWaterLighting())
+		fragment_shader = m_sourcecache.getOrLoad("common", "water_lighting.glsl") + "\n" + fragment_shader;
+	if (voxelLightingEnabled() && (name == "nodes_shader" || name == "object_shader" ||
+			(name == "scene_lighting" && useVoxelFogLighting()) ||
+			(name == "water_volume" && useVoxelWaterLighting())))
+		fragment_shader = m_sourcecache.getOrLoad("common", "voxel_lighting.glsl") + "\n" + fragment_shader;
+	if (useSceneEmissionMask() && (name == "nodes_shader" || name == "object_shader"))
+		fragment_shader = m_sourcecache.getOrLoad("common", "scene_emission.glsl") + "\n" + fragment_shader;
+	if (useWaterRefraction() && name == "nodes_shader")
+		fragment_shader = m_sourcecache.getOrLoad("common", "water_refraction.glsl") + "\n" + fragment_shader;
+	if (useMaterialMaps() && name == "nodes_shader")
+		fragment_shader = m_sourcecache.getOrLoad("common", "material_maps.glsl") + "\n" + fragment_shader;
+	if (name == "volumetric_clouds" || name == "cloud_shadows")
+		fragment_shader = m_sourcecache.getOrLoad("common", "volumetric_clouds.glsl") + "\n" + fragment_shader;
+	if (useCloudShadows() && (name == "nodes_shader" || name == "object_shader" || name == "scene_lighting"))
+		fragment_shader = m_sourcecache.getOrLoad("common", "cloud_shadows.glsl") + "\n" + fragment_shader;
+	if (g_settings->getBool("enable_dynamic_shadows") &&
+			g_settings->getBool("enable_contact_hardening_shadows") &&
+			(name == "nodes_shader" || name == "object_shader"))
+		fragment_shader = m_sourcecache.getOrLoad("common", "soft_shadows.glsl") + "\n" + fragment_shader;
+	if (name == "nodes_shader")
+		vertex_shader = m_sourcecache.getOrLoad("common", "water_waves.glsl") + "\n" + vertex_shader;
+	if (waterVolumeEnabled() && (name == "nodes_shader" || name == "water_volume")) {
+		fragment_shader = m_sourcecache.getOrLoad("common", "water_volume.glsl") + "\n" + fragment_shader;
+		fragment_shader = m_sourcecache.getOrLoad("common", "water_waves.glsl") + "\n" + fragment_shader;
+	}
+
 	vertex_shader = common_header + vertex_header + final_header + vertex_shader;
+	// All shaders must initialise the auxiliary output: sky, objects and
+	// post effects have no node-surface data. Node shaders overwrite it.
+	const bool emission_output = useSceneEmissionMask() && (name == "nodes_shader" || name == "object_shader" ||
+		name == "cloud_shader" || name == "stars_shader" || name == "selection_shader");
+	if (useSceneSurface() || emission_output) {
+		fragment_header += "#define gl_FragColor gl_FragData[0]\n#define main luanti_main\n";
+		std::string wrapper = "\n#undef main\nvoid main() { ";
+		if (useSceneSurface()) wrapper += "gl_FragData[1] = vec4(0.0); ";
+		const std::string slot = std::to_string(useSceneSurface() ? 2 : 1);
+		if (emission_output) wrapper += "gl_FragData[" + slot + "] = vec4(0,0,0,1); ";
+		wrapper += "luanti_main(); ";
+		if (emission_output && name != "nodes_shader" && name != "object_shader")
+			wrapper += "gl_FragData[" + slot + "] = vec4(0,0,0,gl_FragData[0].a); ";
+		fragment_shader += wrapper + "}\n";
+	} else if ((name == "volumetric_clouds" && useCloudDenoising()) || name == "fog_denoise" || input_const.count("FOG_TRANSPORT_PASS")) {
+		fragment_header += "#define gl_FragColor gl_FragData[0]\n";
+	}
 	fragment_shader = common_header + fragment_header + final_header + fragment_shader;
 	const char *geometry_shader_ptr = nullptr; // optional
 	if (!geometry_shader.empty()) {
@@ -901,6 +1094,8 @@ u32 IShaderSource::getShader(const std::string &name,
 
 void ShaderFeatures::setConstants(ShaderConstants &consts) const
 {
+	if (emissive_surface)
+		consts["MATERIAL_EMISSIVE"] = 1;
 	if (array_texture)
 		consts["USE_ARRAY_TEXTURE"] = 1;
 	if (skinning) {

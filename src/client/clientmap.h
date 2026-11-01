@@ -70,6 +70,7 @@ public:
 	}
 
 	void updateCamera(v3f pos, v3f dir, f32 fov, v3s16 offset, video::SColor light_color);
+	video::SColor getCameraLightColor() const { return m_camera_light_color; }
 
 	/*
 		Forcefully get a sector from somewhere

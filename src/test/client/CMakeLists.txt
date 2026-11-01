@@ -1,4 +1,15 @@
 set(test_client_SRCS
+	${CMAKE_CURRENT_SOURCE_DIR}/test_cloud_noise.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_cloud_shadows.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_cloud_history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_fog_history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_volume_lifetime.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_texture_regions.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_water_volume.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_material_maps.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_scene_capture.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_temporal_history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_voxel_radiance.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_irr_gltf_mesh_loader.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_irr_x_mesh_loader.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_irr_image_loader.cpp

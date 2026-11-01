@@ -1,148 +1,89 @@
-<div align="center">
-    <img src="textures/base/pack/logo.png" width="32%">
-    <h1>Luanti (formerly Minetest)</h1>
-    <a href="https://github.com/luanti-org/luanti/actions?query=event%3Apush"><img src="https://github.com/luanti-org/luanti/workflows/linux/badge.svg" alt="Build status"></a>
-    <a href="https://hosted.weblate.org/engage/minetest/?utm_source=widget"><img src="https://hosted.weblate.org/widgets/minetest/-/svg-badge.svg" alt="Translation status"></a>
-    <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html"><img src="https://img.shields.io/badge/license-LGPLv2.1%2B-blue.svg" alt="License"></a>
-</div>
-<br>
+# Bismuth Shader
 
-Luanti is a free open-source voxel game engine with easy modding and game creation.
+Bismuth Shader is a Luanti renderer fork aiming for a semi-realistic look inspired
+by Minecraft shader packs. The focus is richer sunlight, atmosphere, water and
+colored lighting while keeping the block shapes and pixel textures readable.
+
+The work spans GLSL shaders, the client rendering pipeline and the bundled
+Irrlicht renderer. VoxeLibre is the main integration target. Ordinary game
+textures should work well, with optional material maps providing more control.
+
+Rendering features already in the tree include:
+
+- Soft sunlight shadows, smooth daylight transitions, distance haze and shadowed
+  volumetric fog. Volumetric clouds are optional.
+- Waving water with Fresnel reflections, screen-space reflections and sky
+  fallback, refraction and underwater absorption. Caustics are optional.
+- Colored light from placed glowing blocks and held lamps, with voxel visibility
+  and local approximate diffuse bounce.
+- Optional normal and roughness/metallic maps, rough defaults for unmapped
+  textures, preserved emission and normal-map mip filtering.
+- TAA, SSAO, exposure, tone mapping and bloom. Motion blur and depth of field
+  remain optional.
+
+This is work in progress. The implementations need further combined-image tuning,
+compatibility checks and profiling before a finished preset can be delivered.
+
+The project follows these milestones:
+
+| Milestone | Intended result | Current status |
+| --- | --- | --- |
+| 1. Baseline and budget | Repeatable forest, sunset river, glowing cave and underwater scenes | Baseline recorded |
+| 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Tuning and validation in progress |
+| 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Tuning and validation in progress |
+| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implementation present; cost comparison pending |
+| 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Foundation present; further tuning pending |
+| 6. Combined-image stability | Stable TAA, exposure and bloom during movement, animation, resizing and water transitions | Effects present; combined audit pending |
+| 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
+
+The performance target is **1080p at 60 FPS on a GTX 1650 Ti**, subject to
+profiling. The recorded Milestone 1 balanced baseline achieved about 41 FPS in
+the forest and river, 67 FPS in the cave and 47 FPS underwater. Those measurements
+precede the latest changes; the current renderer has not been re-benchmarked
+completely. See the [baseline report](doc/developing/graphics-baseline/README.md)
+for hardware, settings, frame times and raw data.
+
+Development on milestones 2–4 is currently paused. The final native VoxeLibre
+replay and 1080p lighting-cost comparison still need to finish. The
+[milestone notes](doc/developing/graphics-milestones-2-4.md) record the changes,
+acceptance criteria and verification checkpoint.
+
+To try the renderer, install the dependencies from the existing
+[build documentation](doc/compiling/README.md), then build this checkout:
+
+```sh
+cmake -S . -B build -DRUN_IN_PLACE=TRUE -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j2
+./bin/luanti --config misc/graphics-balanced.conf
+```
+
+Install VoxeLibre separately through the content browser or your usual game
+installation method. The advanced pipeline targets desktop OpenGL; OpenGL 3 is
+the primary tested renderer. Games retain control of shadow and volumetric-light
+intensity through their lighting settings.
+
+Three configurations are available:
+
+- [Balanced](misc/graphics-balanced.conf): the working semi-realistic candidate,
+  with local lighting, soft shadows, reflective/refractive water and restrained
+  post-processing.
+- [Quality](misc/graphics-quality.conf): a more expensive configuration for
+  exercising optional effects, including volumetric clouds and caustics.
+- [Basic](misc/graphics-basic.conf): native rendering with the optional effects
+  disabled, for comparison and fallback.
+
+Use the chosen file with `--config`, or merge its settings into your own
+configuration. Restart the client after changing pipeline effects.
+
+Validation uses C++ tests, numeric GPU checks and scripted native terrain
+replays. Start with `./bin/luanti --run-unittests`; reproduction commands and
+renderer details are in the [milestone notes](doc/developing/graphics-milestones-2-4.md),
+[baseline procedure](doc/developing/graphics-milestone-1.md) and
+[graphics documentation](doc/developing/scene-lighting.md).
+
+Bismuth builds on [Luanti](https://github.com/luanti-org/luanti). Luanti's source
+license remains LGPL-2.1-or-later; media and third-party components retain their
+respective licenses. See [LICENSE.txt](LICENSE.txt) and source file notices.
 
 Copyright (C) 2010-2026 Perttu Ahola <celeron55@gmail.com>
-and contributors (see source file comments and the version control log)
-
-Table of Contents
-------------------
-
-1. [Further Documentation](#further-documentation)
-2. [Default Controls](#default-controls)
-3. [Paths](#paths)
-4. [Configuration File](#configuration-file)
-5. [Command-line Options](#command-line-options)
-6. [Compiling](#compiling)
-7. [Docker](#docker)
-8. [Version Scheme](#version-scheme)
-
-
-Further documentation
-----------------------
-- Website: https://www.luanti.org/
-- Luanti Documentation: https://docs.luanti.org/
-- Forum: https://forum.luanti.org/
-- GitHub: https://github.com/luanti-org/luanti/
-- [Developer documentation](doc/developing/)
-- [doc/](doc/) directory of source distribution
-
-Default controls
-----------------
-All controls are re-bindable using settings.
-Some can be changed in the key config dialog in the settings tab.
-
-| Button                        | Action                                                         |
-|-------------------------------|----------------------------------------------------------------|
-| Move mouse                    | Look around                                                    |
-| W, A, S, D                    | Move                                                           |
-| Space                         | Jump/move up                                                   |
-| Shift                         | Sneak/move down                                                |
-| Q                             | Drop itemstack                                                 |
-| Shift + Q                     | Drop single item                                               |
-| Left mouse button             | Dig/punch/use                                                  |
-| Right mouse button            | Place/use                                                      |
-| Shift + right mouse button    | Build (without using)                                          |
-| I                             | Inventory menu                                                 |
-| Mouse wheel                   | Select item                                                    |
-| 0-9                           | Select item                                                    |
-| Z                             | Zoom (needs zoom privilege)                                    |
-| T                             | Chat                                                           |
-| /                             | Command                                                        |
-| Esc                           | Pause menu/abort/exit (pauses only singleplayer game)          |
-| +                             | Increase view range                                            |
-| -                             | Decrease view range                                            |
-| K                             | Enable/disable fly mode (needs fly privilege)                  |
-| J                             | Enable/disable fast mode (needs fast privilege)                |
-| H                             | Enable/disable noclip mode (needs noclip privilege)            |
-| E                             | Aux1 (Move fast in fast mode. Games may add special features)  |
-| C                             | Cycle through camera modes                                     |
-| V                             | Cycle through minimap modes                                    |
-| Shift + V                     | Change minimap orientation                                     |
-| F1                            | Hide/show HUD                                                  |
-| F2                            | Hide/show chat                                                 |
-| F3                            | Disable/enable fog                                             |
-| F4                            | Disable/enable camera update (Mapblocks are not updated anymore when disabled, disabled in release builds)  |
-| F5                            | Cycle through debug information screens                        |
-| F6                            | Cycle through profiler info screens                            |
-| F10                           | Show/hide console                                              |
-| F12                           | Take screenshot                                                |
-
-Paths
------
-Locations:
-
-* `bin`   - Compiled binaries
-* `share` - Distributed read-only data
-* `user`  - User-created modifiable data
-
-Where each location is on each platform:
-
-* Windows .zip / RUN_IN_PLACE source:
-    * `bin`   = `bin`
-    * `share` = `.`
-    * `user`  = `.`
-* Windows installed:
-    * `bin`   = `C:\Program Files\Minetest\bin (Depends on the install location)`
-    * `share` = `C:\Program Files\Minetest (Depends on the install location)`
-    * `user`  = `%APPDATA%\Minetest` or `%MINETEST_USER_PATH%`
-* Linux installed:
-    * `bin`   = `/usr/bin`
-    * `share` = `/usr/share/minetest`
-    * `user`  = `~/.minetest` or `$MINETEST_USER_PATH`
-* macOS:
-    * `bin`   = `Contents/MacOS`
-    * `share` = `Contents/Resources`
-    * `user`  = `Contents/User` or `~/Library/Application Support/minetest` or `$MINETEST_USER_PATH`
-
-Worlds can be found as separate folders in: `user/worlds/`
-
-Configuration file
-------------------
-- Default location:
-    `user/minetest.conf`
-- This file is created by closing Luanti for the first time.
-- A specific file can be specified on the command line:
-    `--config <path-to-file>`
-- A run-in-place build will look for the configuration file in
-    `location_of_exe/../minetest.conf` and also `location_of_exe/../../minetest.conf`
-
-Command-line options
---------------------
-- Use `--help`
-
-Compiling
----------
-
-- [Compiling - common information](doc/compiling/README.md)
-- [Compiling on GNU/Linux](doc/compiling/linux.md)
-- [Compiling on Windows](doc/compiling/windows.md)
-- [Compiling on MacOS](doc/compiling/macos.md)
-
-Docker
-------
-
-- [Developing minetestserver with Docker](doc/developing/docker.md)
-- [Running a server with Docker](doc/docker_server.md)
-
-Version scheme
---------------
-We use `major.minor.patch` since 5.0.0-dev. Prior to that we used `0.major.minor`.
-
-- Major is incremented when the release contains breaking changes, all other
-numbers are set to 0.
-- Minor is incremented when the release contains new non-breaking features,
-patch is set to 0.
-- Patch is incremented when the release only contains bugfixes and very
-minor/trivial features considered necessary.
-
-Since 5.0.0-dev and 0.4.17-dev, the dev notation refers to the next release,
-i.e.: 5.0.0-dev is the development version leading to 5.0.0.
-Prior to that we used `previous_version-dev`.
+and contributors (see source file comments and the version control log).

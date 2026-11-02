@@ -488,7 +488,11 @@ void main(void)
 	// For high clarity (light fog) we tint the fog color.
 	// For this to not make the fog color artificially dark we need to normalize using the
 	// fog color's brightest value. We then blend our base color with this to make the fog.
-	col = mix(fogColor * pow(fogColor / fogColorMax, vec4(2.0 * clarity)), col, clarity);
+	float nativeSky = clamp((1.0 - nightRatio) *
+		max(max(varColor.r, varColor.g), varColor.b), 0.0, 1.0);
+	vec4 tintedFog = fogColor * pow(fogColor / fogColorMax, vec4(2.0 * clarity));
+	tintedFog.rgb *= nativeSky;
+	col = mix(tintedFog, col, clarity);
 	col = vec4(col.rgb, base.a);
 
 	gl_FragColor = col;

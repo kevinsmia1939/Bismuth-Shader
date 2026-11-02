@@ -147,8 +147,8 @@ void main(){if(testMode<0.5) generateCloudShadow();else gl_FragColor=vec4(cloudS
 
 def node_light_separation():
     source=(ROOT/"nodes_shader/opengl_fragment.glsl").read_text()
-    begin=source.index("#if defined(ENABLE_CLOUD_SHADOWS) && !defined(MATERIAL_EMISSIVE)")
-    end=source.index("#endif",begin)+len("#endif")
+    begin=source.index("#if defined(ENABLE_CLOUD_SHADOWS)\n")
+    end=source.index("\n#ifdef ENABLE_VOXEL_LIGHTING",begin)
     block=source[begin:end]
     # Exercise the actual node composition with a backlit leaf/glint contribution
     # and full artificial light: only the explicit sun terms should be attenuated.

@@ -22,8 +22,10 @@ warp as the shadow caster. Terrain and shadow-casting objects occlude the light;
 the colored-shadow format supplies transparent RGB transmission. A small depth
 bias reduces quantization artifacts. Direct scattering fades at the shadow-map
 border and is suppressed outside its known coverage. If shadows are disabled,
-fog can still integrate with unoccluded directional illumination. A binding guard
-prevents reads from a missing shadow texture.
+fog uses local native skylight as its visibility fallback. A binding guard
+prevents reads from a missing shadow texture. Both ambient and directional sky
+scattering require local skylight, so an outdoor camera/sky tint cannot reveal
+the shape of a zero-light cave; see [dark caves](dark-caves.md).
 
 Sun/moon visibility, custom shadow direction and the game's
 `player:set_lighting({volumetric_light = {strength = ...}})` control the light.
@@ -32,7 +34,8 @@ not override that choice. Moon scattering is reduced relative to sunlight.
 The source direction, linear color and smooth horizon fade are shared with
 surface and water lighting and indirect-light injection. Natural low sun adds
 a restrained warm tint; custom directions retain native daylight color.
-Ambient in-scattering takes the game's fog tint. The pass is bypassed while the
+Ambient in-scattering takes the game's fog tint weighted by local skylight.
+The pass is bypassed while the
 camera is inside a liquid or an opaque node and when both sky lights are hidden
 without a custom light direction or active local voxel-fog lighting, preserving
 game-defined underwater/solid fog.

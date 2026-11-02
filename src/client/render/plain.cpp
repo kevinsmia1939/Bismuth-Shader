@@ -24,12 +24,12 @@ void Draw3D::run(PipelineContext &context)
 {
 	if (m_target)
 		m_target->activate(context);
-	if (m_emission_clear && m_target) {
-		// The scene clear uses the sky color; the scalar emission mask must start
-		// at zero even if the sky is hidden or transparent geometry writes depth.
+	if (m_auxiliary_clear && m_target) {
+		// Color clears to the sky; geometry validity/skylight and emission
+		// coverage must start at zero, including uncovered MSAA samples.
 		const auto clear_color = context.clear_color;
 		context.clear_color = video::SColor(0);
-		m_emission_clear->activate(context);
+		m_auxiliary_clear->activate(context);
 		context.clear_color = clear_color;
 		m_target->activate(context); // Already activated: restore without clearing.
 	}

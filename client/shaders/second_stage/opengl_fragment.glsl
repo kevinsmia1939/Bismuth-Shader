@@ -60,7 +60,8 @@ vec4 applyBloom(vec4 color, vec2 uv)
 // highp for GLES, see <https://github.com/luanti-org/luanti/pull/14688>
 highp vec3 uncharted2Tonemap(highp vec3 x)
 {
-	return ((x * (0.22 * x + 0.03) + 0.002) / (x * (0.22 * x + 0.3) + 0.06)) - 0.03333;
+	return max(((x * (0.22 * x + 0.03) + 0.002) / (x * (0.22 * x + 0.3) + 0.06)) -
+		vec3(1.0 / 30.0), vec3(0.0));
 }
 
 vec4 applyToneMapping(vec4 color)

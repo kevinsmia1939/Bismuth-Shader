@@ -309,10 +309,16 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 			buffer->setTexture(TEXTURE_MSAA_EMISSION_MASK, scale, "scene_emission_msaa", video::ECF_R8, false, antialiasing_scale);
 			msaa_textures.push_back(TEXTURE_MSAA_EMISSION_MASK);
 		}
+	}
+	if (surface_enabled || emission_mask) {
+		std::vector<u8> auxiliary_textures;
+		if (surface_enabled)
+			auxiliary_textures.push_back(enable_msaa ? TEXTURE_MSAA_SURFACE : TEXTURE_SURFACE);
+		if (emission_mask)
+			auxiliary_textures.push_back(enable_msaa ? TEXTURE_MSAA_EMISSION_MASK : TEXTURE_EMISSION_MASK);
 		auto *draw = dynamic_cast<Draw3D *>(previousStep);
 		sanity_check(draw);
-		draw->setEmissionClearTarget(pipeline->createOwned<TextureBufferOutput>(buffer,
-			enable_msaa ? TEXTURE_MSAA_EMISSION_MASK : TEXTURE_EMISSION_MASK));
+		draw->setAuxiliaryClearTarget(pipeline->createOwned<TextureBufferOutput>(buffer, auxiliary_textures));
 	}
 
 	// attach buffer to the previous step

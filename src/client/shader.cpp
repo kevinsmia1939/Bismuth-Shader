@@ -41,8 +41,9 @@ bool supportsSceneSurface()
 bool useSceneSurface()
 {
 	return g_settings->getBool("enable_post_processing") && supportsSceneSurface() &&
+		RenderingEngine::get_video_driver()->queryFeature(video::EVDF_MRT_BLEND) &&
 		(g_settings->getBool("enable_screen_space_reflections") ||
-		g_settings->getBool("enable_indirect_lighting"));
+		g_settings->getBool("enable_indirect_lighting") || g_settings->getBool("enable_atmosphere"));
 }
 
 bool useSceneEmissionMask()
@@ -329,6 +330,10 @@ public:
 			constants["ENABLE_CLOUD_SHADOWS"] = 1;
 		if (useSceneSurface()) {
 			constants["ENABLE_SCENE_SURFACE"] = 1;
+			// Keep resolved partial MSAA coverage below the valid-surface tag 1.
+			// A fully covered sample stores 1 + skylight / divisor in FP16 alpha.
+			constants["SCENE_SKY_DIVISOR"] = g_settings->get("antialiasing") == "fsaa" ?
+				float(2 * std::max(1, g_settings->getS32("fsaa"))) : 1.0f;
 			if (g_settings->getBool("enable_screen_space_reflections"))
 				constants["ENABLE_SCREEN_SPACE_REFLECTIONS"] = 1;
 			if (g_settings->getBool("enable_indirect_lighting"))

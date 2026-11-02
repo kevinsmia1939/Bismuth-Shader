@@ -64,6 +64,7 @@ void COpenGL3Driver::initFeatures()
 	AnisotropicFilterSupported = isVersionAtLeast(4, 6) || queryExtension("GL_ARB_texture_filter_anisotropic") || queryExtension("GL_EXT_texture_filter_anisotropic");
 	LODBiasSupported = true;
 	BlendMinMaxSupported = true;
+	IndexedBlendSupported = GL.Enablei && GL.Disablei;
 	TextureMultisampleSupported = true;
 	Texture2DArraySupported = true;
 	KHRDebugSupported = isVersionAtLeast(4, 6) || queryExtension("GL_KHR_debug");

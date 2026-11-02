@@ -239,7 +239,7 @@ public:
 			MaterialTypeParam(0.0f), Thickness(1.0f), BlendFactor(0.0f),
 			PolygonOffsetDepthBias(0.f), PolygonOffsetSlopeScale(0.f),
 			ZBuffer(ECFN_LESSEQUAL), AntiAliasing(EAAM_SIMPLE), ColorMask(ECP_ALL),
-			BlendOperation(EBO_NONE), Wireframe(false), PointCloud(false),
+			BlendOperation(EBO_NONE), AuxiliaryBlendMask(0xff), Wireframe(false), PointCloud(false),
 			ZWriteEnable(EZW_AUTO),
 			BackfaceCulling(true), FrontfaceCulling(false), FogEnable(false),
 			UseMipMaps(true)
@@ -308,6 +308,10 @@ public:
 
 	//! Store the blend operation of choice
 	E_BLEND_OPERATION BlendOperation : 4;
+
+	//! Enable color blending on auxiliary MRT attachments (bits 1..7).
+	//! Attachment zero retains the material's ordinary blend operation.
+	u8 AuxiliaryBlendMask;
 
 	//! Draw as wireframe or filled triangles? Default: false
 	bool Wireframe : 1;
@@ -412,6 +416,7 @@ public:
 				AntiAliasing != b.AntiAliasing ||
 				ColorMask != b.ColorMask ||
 				BlendOperation != b.BlendOperation ||
+				AuxiliaryBlendMask != b.AuxiliaryBlendMask ||
 				BlendFactor != b.BlendFactor ||
 				PolygonOffsetDepthBias != b.PolygonOffsetDepthBias ||
 				PolygonOffsetSlopeScale != b.PolygonOffsetSlopeScale ||

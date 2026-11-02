@@ -45,6 +45,7 @@ void main() {
   vec4 fogColor=vec4(0);
   vec3 dayLight=vec3(0);
   float nightRatio=testNight;
+  float nativeSky=1.0;
 '''+NODE_COMPOSE+'''
   gl_FragColor=col;
  }

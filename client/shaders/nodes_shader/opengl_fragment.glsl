@@ -3,6 +3,9 @@
 #else
 	uniform sampler2D baseTexture;
 #endif
+#ifndef SCENE_SKY_DIVISOR
+#define SCENE_SKY_DIVISOR 1.0
+#endif
 #define crackTexture texture1
 uniform sampler2D crackTexture;
 #if defined(ENABLE_WATER_REFRACTION) && (MATERIAL_TYPE == TILE_MATERIAL_LIQUID_TRANSPARENT || MATERIAL_TYPE == TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT)
@@ -500,6 +503,10 @@ void main(void)
 	vec3 materialSun = vec3(0.0);
 	vec3 materialPoint = vec3(0.0);
 	bool authoredMaterial = false;
+	// Native light banks distinguish skylight from lamps. Global sky color is
+	// not evidence that a covered surface can see that sky.
+	float nativeSky = clamp((1.0 - nightRatio) *
+		max(max(varColor.r, varColor.g), varColor.b), 0.0, 1.0);
 
 	// Fragment normal shared by direct shading and the screen-space surface buffer.
 	vec3 fNormal = normalize(vNormal + vec3(0.0, 0.000001, 0.0));
@@ -715,7 +722,7 @@ void main(void)
 		vec3 viewVector = cameraPosition - cameraOffset - worldPosition;
 		vec3 view = viewVector / max(length(viewVector), 0.000001);
 		vec3 environment = materialEnvironment(fNormal, view, f0, materialData.g,
-			materialData.r, fogColor.rgb, dayLight);
+			materialData.r, fogColor.rgb, dayLight) * nativeSky;
 		float nativeEmission = 0.0;
 #ifdef MATERIAL_EMISSIVE
 		nativeEmission = 1.0;
@@ -762,19 +769,22 @@ void main(void)
 	// For high clarity (light fog) we tint the fog color.
 	// For this to not make the fog color artificially dark we need to normalize using the
 	// fog color's brightest value. We then blend our base color with this to make the fog.
-	col = mix(fogColor * pow(fogColor / fogColorMax, vec4(2.0 * clarity)), col, clarity);
+	vec4 tintedFog = fogColor * pow(fogColor / fogColorMax, vec4(2.0 * clarity));
+	tintedFog.rgb *= nativeSky;
+	col = mix(tintedFog, col, clarity);
 	col = vec4(col.rgb, outputAlpha);
 
 	gl_FragColor = col;
 #ifdef ENABLE_SCENE_SURFACE
 	vec3 viewNormal = normalize((sceneView * vec4(fNormal, 0.0)).xyz);
-	// Alpha=1 avoids blending normals with the background on translucent water.
+	// Attachment 1 disables blending independently, including on translucent
+	// water. Alpha stores coverage (>=1) plus local skylight for fog transport.
 	// Signed view depth identifies water (+) versus opaque diffuse nodes (-).
 	float surfaceDepth = -eyeVec.z;
 #if !MATERIAL_WATER_REFLECTIONS
 	surfaceDepth = -surfaceDepth;
 #endif
-	gl_FragData[1] = vec4(encodeSurfaceNormal(viewNormal), surfaceDepth, 1.0);
+	gl_FragData[1] = vec4(encodeSurfaceNormal(viewNormal), surfaceDepth, 1.0 + nativeSky / SCENE_SKY_DIVISOR);
 #endif
 #ifdef ENABLE_SCENE_EMISSION_MASK
 	writeSceneEmission(col.a);

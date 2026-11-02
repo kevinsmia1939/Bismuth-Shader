@@ -48,10 +48,11 @@ def pair(gpu):
     return first,list(second)
 
 def transport():
-    fragment="#define ENABLE_ATMOSPHERE\n#define ENABLE_VOLUMETRIC_FOG\n#define ENABLE_FOG_DENOISING\n#define FOG_TRANSPORT_PASS\n"+source("scene_lighting")
+    fragment="#define ENABLE_ATMOSPHERE\n#define ENABLE_SCENE_SURFACE\n#define ENABLE_VOLUMETRIC_FOG\n#define ENABLE_FOG_DENOISING\n#define FOG_TRANSPORT_PASS\n"+source("scene_lighting")
     with ShaderTest(mrt(fragment)) as gpu:
         attach_second(gpu,half=True)
         gpu.sampler("texture1",1);gpu.texture(1,((A+B/100)*0.5+0.5,0,0,1))
+        gpu.sampler("texture2",2);gpu.texture(2,(0.5,0.5,-100,2))
         gpu.matrix("inverseProjection",INVERSE);gpu.matrix("inverseView",IDENTITY)
         gpu.uniform("sceneParams",0.1,0,0,0);gpu.uniform("volumeParams",10,100,0,24)
         gpu.uniform("volumeLightDirection",0,1,0);gpu.uniform("volumeLightColor",0.8,0.6,0.4)

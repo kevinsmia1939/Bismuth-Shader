@@ -64,11 +64,12 @@ public:
 		case EVDF_ARB_VERTEX_PROGRAM_1:
 		case EVDF_ARB_FRAGMENT_PROGRAM_1:
 		case EVDF_GEOMETRY_SHADER:
-		case EVDF_MRT_BLEND:
 		case EVDF_MRT_COLOR_MASK:
 		case EVDF_MRT_BLEND_FUNC:
 		case EVDF_OCCLUSION_QUERY:
 			return false;
+		case EVDF_MRT_BLEND:
+			return IndexedBlendSupported;
 		case EVDF_MULTIPLE_RENDER_TARGETS:
 			return Feature.MultipleRenderTarget >= 2 && Feature.ColorAttachment >= 2;
 		case EVDF_STENCIL_BUFFER:
@@ -164,6 +165,16 @@ public:
 		GL.BlendEquation(mode);
 	}
 
+	inline void irrGlEnableIndexed(GLenum target, GLuint index)
+	{
+		if (IndexedBlendSupported) GL.Enablei(target, index);
+	}
+
+	inline void irrGlDisableIndexed(GLenum target, GLuint index)
+	{
+		if (IndexedBlendSupported) GL.Disablei(target, index);
+	}
+
 	inline void irrGlObjectLabel(GLenum identifier, GLuint name, const char *label)
 	{
 		if (KHRDebugSupported) {
@@ -176,6 +187,7 @@ public:
 	}
 
 	bool LODBiasSupported = false;
+	bool IndexedBlendSupported = false;
 	bool AnisotropicFilterSupported = false;
 	bool BlendMinMaxSupported = false;
 	bool TextureMultisampleSupported = false;

@@ -22,7 +22,7 @@ void main(void)
 	float guide = depth < 0.99999 ? min(length(p), 60000.0) : 0.0;
 #ifdef ENABLE_SCENE_SURFACE
 	vec4 surface = texture2D(texture4, uv);
-	if (abs(surface.b) > 1.0 && abs(surface.b) < 60000.0 && surface.a > 0.99 &&
+	if (abs(surface.b) > 1.0 && abs(surface.b) < 60000.0 && surface.a >= 1.0 &&
 			abs(surface.b) <= p.z + max(0.5, p.z * 0.002)) {
 		vec3 ray = fogCompositePosition(uv, 0.5);
 		p = ray * (abs(surface.b) / max(ray.z, 0.0001));

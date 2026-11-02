@@ -53,6 +53,13 @@ local function next_stage()
  player:set_sun({visible=true});player:set_moon({visible=true})
  player:set_clouds({density=0.4,height=120,thickness=16,speed={x=0,y=0}})
  player:set_lighting({shadows={intensity=0.65},volumetric_light={strength=0.15}})
+ if stage.scene=="glowing_cave" and core.settings:get_bool("graphics_acceptance_bright_cave",false) then
+  -- Model looking into the cave from daylight: retain a bright outdoor sky
+  -- and fog color even though the receiver's native skylight is zero.
+  player:set_sky({type="plain",base_color="#99CCFF",auto_dim_skybox=false,
+   fog={fog_color="#99CCFF"}})
+  core.log("action","Graphics acceptance: bright daylight sky over unlit cave")
+ end
  apply(stage,0)
  event("prepare",{id=stage.id,index=index,scene=stage.scene,placed=stage.placed or false,held=stage.held or false})
  phase="wait"

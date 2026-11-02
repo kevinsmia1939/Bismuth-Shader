@@ -55,11 +55,13 @@ shadow-map enablement and coverage.
 Reflections and indirect lighting require desktop OpenGL with floating-point MRTs.
 The renderer allocates an RGBA16F attachment alongside scene color. Node shaders
 write an octahedral view-space normal in RG, signed linear view depth in B
-(positive for water-like liquid materials, negative for other nodes), and validity
-in A. A value of one in A also prevents alpha blending from corrupting water
-normals. Other engine shader outputs invalidate the auxiliary data. Surface
+(positive for water-like liquid materials, negative for other nodes), and coverage
+plus local skylight in A. Covered pixels have alpha at least one; zero is empty.
+An indexed blend mask protects geometry metadata while color/emission coverage
+retain their ordinary blending. MSAA-aware packing preserves coverage rejection;
+see [dark caves](dark-caves.md). Other engine shader outputs invalidate the auxiliary data. Surface
 positions are relative to the camera; reconstruction uses the actual projection.
-The attachment is omitted entirely if neither reflections nor bounce is enabled.
+The attachment is omitted if reflections, bounce and atmosphere are all disabled.
 SSAO emissive protection uses its own R8 coverage attachment, rather than changing
 this validity channel. It is available with or without the normal/depth attachment
 when the device has enough outputs; see `ambient-occlusion.md`.
@@ -68,7 +70,7 @@ when the device has enough outputs; see `ambient-occlusion.md`.
 normal, with 40 quadratic-distance steps over at most 64 nodes and eight refinement
 steps at a possible hit. Depth discontinuities, sky hits, and water hits are
 rejected. Confidence fades near viewport edges and at maximum range. Missing
-hits use the game's sky/fog color. A Schlick air/water Fresnel factor determines
+hits use the game's sky/fog color weighted by local skylight access. A Schlick air/water Fresnel factor determines
 the reflection weight; `water_reflection_strength` scales it (default 0.8).
 Wave normals follow the water settings. The existing sun glint is retained while
 the old approximate sky reflection is suppressed when SSR is active.

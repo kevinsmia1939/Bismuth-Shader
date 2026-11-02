@@ -10,6 +10,8 @@
 #include "irr_ptr.h"
 #include <irrlicht.h>
 #include <IVideoDriver.h>
+#include <IGPUProgrammingServices.h>
+#include <IRenderTarget.h>
 #include <unordered_set>
 #include <limits>
 
@@ -256,8 +258,13 @@ TEST_CASE("Material map identity survives mesh grouping and animation", "[client
 	std::unordered_set<TileLayer> groups{a, b, c, a};
 	CHECK(groups.size() == 3);
 	video::SMaterial material;
+	CHECK(material.AuxiliaryBlendMask == 0xff);
 	a.material_flags = 0;
 	a.applyMaterialOptions(material, 0);
+	CHECK(material.AuxiliaryBlendMask == 0xff);
+	auto blended = material;
+	blended.AuxiliaryBlendMask = 0xfd;
+	CHECK_FALSE(blended == material);
 	CHECK(material.getTexture(0) == base0);
 	CHECK(material.getTexture(4) == normal0);
 	CHECK(material.getTexture(5) == orm0);
@@ -286,4 +293,64 @@ TEST_CASE("Material map identity survives mesh grouping and animation", "[client
 	ShaderConstants ordinary;
 	ShaderFeatures{}.setConstants(ordinary);
 	CHECK(ordinary.count("MATERIAL_EMISSIVE") == 0);
+}
+
+TEST_CASE("MRT geometry metadata bypasses blending while color and emission retain coverage", "[.][client][render][surface-blend]")
+{
+	for (auto type : {video::EDT_OPENGL3, video::EDT_OPENGL}) {
+		SIrrlichtCreationParameters params;
+		params.DriverType = type;
+		params.WindowSize = {64, 64};
+		params.OGLES2ShaderPath = (porting::path_share + "/client/shaders/Irrlicht/").c_str();
+		irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+		REQUIRE(device);
+		auto *driver = device->getVideoDriver();
+		REQUIRE(driver->queryFeature(video::EVDF_MRT_BLEND));
+		const char *vertex = type == video::EDT_OPENGL3 ?
+			"#version 130\nin vec3 inVertexPosition; void main(){gl_Position=vec4(inVertexPosition,1);}" :
+			"#version 120\nvoid main(){gl_Position=gl_Vertex;}";
+		const char *fragment = "#version 120\nvoid main(){"
+			"gl_FragData[0]=vec4(0.8,0.4,0.2,0.5);"
+			"gl_FragData[1]=vec4(0.25,0.75,-10,2);"
+			"gl_FragData[2]=vec4(0.6,0,0,0.5);}";
+		const s32 shader = driver->getGPUProgrammingServices()->addHighLevelShaderMaterial(
+			vertex, fragment, "surface_blend", nullptr, video::EMT_TRANSPARENT_ALPHA_CHANNEL);
+		REQUIRE(shader >= 0);
+		core::array<video::ITexture *> textures;
+		for (const char *name : {"blend_color", "blend_surface", "blend_emission"}) {
+			auto *texture = driver->addRenderTargetTexture({4, 4}, name, video::ECF_A32B32G32R32F);
+			REQUIRE(texture);
+			textures.push_back(texture);
+		}
+		auto *target = driver->addRenderTarget();
+		REQUIRE(target);
+		target->setTexture(textures, nullptr);
+		video::SMaterial material;
+		material.MaterialType = static_cast<video::E_MATERIAL_TYPE>(shader);
+		material.BackfaceCulling = false;
+		material.ZBuffer = video::ECFN_ALWAYS;
+		video::S3DVertex vertices[3];
+		vertices[0].Pos = {-1, -1, 0}; vertices[1].Pos = {3, -1, 0}; vertices[2].Pos = {-1, 3, 0};
+		const u16 indices[] = {0, 1, 2};
+		for (u8 mask : {u8(0xfd), u8(0xff), u8(0xfd)}) {
+			REQUIRE(driver->setRenderTargetEx(target, video::ECBF_COLOR, video::SColor(0)));
+			material.AuxiliaryBlendMask = mask;
+			driver->setMaterial(material);
+			driver->drawVertexPrimitiveList(vertices, 3, indices, 1);
+			driver->setRenderTargetEx(nullptr, 0);
+			const float multiplier = mask == 0xfd ? 1.0f : 2.0f;
+			const std::array<std::array<float, 4>, 3> expected{{
+				{{0.4f, 0.2f, 0.1f, 0.25f}},
+				{{0.25f * multiplier, 0.75f * multiplier, -10.f * multiplier, 2.f * multiplier}},
+				{{0.3f, 0.f, 0.f, 0.25f}}
+			}};
+			for (u32 attachment = 0; attachment < textures.size(); ++attachment) {
+				auto *pixels = static_cast<float *>(textures[attachment]->lock(video::ETLM_READ_ONLY));
+				REQUIRE(pixels);
+				for (u32 channel = 0; channel < 4; ++channel)
+					CHECK(pixels[channel] == Catch::Approx(expected[attachment][channel]).margin(1e-5));
+				textures[attachment]->unlock();
+			}
+		}
+	}
 }

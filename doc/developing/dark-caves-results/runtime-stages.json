@@ -1,0 +1,54 @@
+{
+  "runtime-legacy-verified": [
+    {
+      "index": 1,
+      "name": "baseline",
+      "time_us": 10317074808,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 2,
+      "name": "held light",
+      "time_us": 10323028389,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 3,
+      "name": "removed held light",
+      "time_us": 10329137171,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 4,
+      "name": "unmapped replacement",
+      "time_us": 10335131142,
+      "completed_frame_checkpoints": 2
+    }
+  ],
+  "runtime-emission-only": [
+    {
+      "index": 1,
+      "name": "baseline",
+      "time_us": 10458629382,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 2,
+      "name": "held light",
+      "time_us": 10473189978,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 3,
+      "name": "removed held light",
+      "time_us": 10479291587,
+      "completed_frame_checkpoints": 2
+    },
+    {
+      "index": 4,
+      "name": "unmapped replacement",
+      "time_us": 10485285569,
+      "completed_frame_checkpoints": 2
+    }
+  ]
+}

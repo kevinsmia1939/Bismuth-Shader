@@ -161,7 +161,10 @@ has separate GPU copies; normal preparation does not reinterpret its color alpha
 
 A coarse sky/fog-tinted environment approximation gives metals a reflection even
 without a resolved directional highlight. Roughness broadens that approximation;
-it is not a prefiltered cubemap or an off-screen reflection render. The ORM
+local native skylight gates its radiance, preventing sky reflections on zero-light
+cave walls even when the camera's sky/fog is bright. Lamp reflections retain
+their own visibility. See [cave darkness](dark-caves.md).
+It is not a prefiltered cubemap or an off-screen reflection render. The ORM
 occlusion channel attenuates added voxel diffuse bounce and environment reflection;
 it does not darken direct local light. Existing geometry SSAO remains downstream.
 The voxel solver reduces donor diffuse reflectance by average metallic fraction,

@@ -62,7 +62,7 @@ void main(void)
 		// Refraction already contains transmitted/scattered light. Do not shade
 		// that composite using the depth of the floor behind the water. A closer
 		// object may overwrite depth while leaving an older water marker behind.
-		if (surface.b > 0.0 && surface.b < 60000.0 && surface.a > 0.99 &&
+		if (surface.b > 0.0 && surface.b < 60000.0 && surface.a >= 1.0 &&
 				surface.b <= p.z + max(0.5, p.z * 0.002)) {
 			gl_FragColor = color;
 			return;

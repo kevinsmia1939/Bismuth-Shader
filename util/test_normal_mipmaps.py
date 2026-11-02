@@ -85,6 +85,7 @@ void main() {
  vec3 worldPosition=vec3(40,40,80),vNormal=vec3(0,0,1);
  vec4 base=vec4(0.8,0.4,0.2,1),col=vec4(0,0,0,0.4),fogColor=vec4(0);
  float nightRatio=0.0;
+ float nativeSky=1.0;
  bool authoredMaterial=true;
 '''+NODE_COMPOSE+'''
  gl_FragColor=col;

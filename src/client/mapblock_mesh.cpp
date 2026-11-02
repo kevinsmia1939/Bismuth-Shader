@@ -529,6 +529,10 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 				material.MaterialType = m_shdrsrc->getShaderInfo(
 						p.layer.shader_id).material;
 				p.layer.applyMaterialOptions(material, layer);
+				// The surface attachment is geometry data. Other targets keep
+				// ordinary color/emission-coverage blending, including the case
+				// where emission is attachment 1 without a surface buffer.
+				material.AuxiliaryBlendMask = useSceneSurface() ? 0xfd : 0xff;
 			}
 
 			// Handle crack

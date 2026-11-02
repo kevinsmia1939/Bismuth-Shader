@@ -39,9 +39,10 @@ void main() {
 
 
 def composition():
-    with ShaderTest('#define ENABLE_ATMOSPHERE\n'+SOURCE) as gpu:
+    with ShaderTest('#define ENABLE_ATMOSPHERE\n#define ENABLE_SCENE_SURFACE\n'+SOURCE) as gpu:
         gpu.sampler('texture0', 0);gpu.texture(0, (0.4, 0.5, 0.6, 0.7))
         gpu.sampler('texture1', 1)
+        gpu.sampler('texture2', 2)
         near, far = 1, 2000
         a, b = (far+near)/(far-near), -2*far*near/(far-near)
         gpu.matrix('inverseProjection', [1,0,0,0,0,1,0,0,0,0,0,1/b,0,0,1,-a/b])
@@ -55,6 +56,7 @@ def composition():
 
         def depth(z):
             gpu.texture(1, ((a+b/z)*0.5+0.5, 0, 0, 1))
+            gpu.texture(2, (0.5, 0.5, -z, 2)) # Covered, fully skylit outdoor surface.
 
         depth(10)  # One node; preserve nearby texture contrast.
         near_color = gpu.draw()

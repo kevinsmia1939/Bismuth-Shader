@@ -8,7 +8,7 @@ void writeSceneEmission(float alpha)
 	emission = 1.0;
 #endif
 	// The separate R8 target follows scene coverage through normal alpha blending.
-	// The normal/depth attachment keeps alpha one and is never repurposed.
+	// The normal/depth/skylight attachment disables blending independently.
 	gl_FragData[SCENE_EMISSION_ATTACHMENT] = vec4(emission, 0.0, 0.0, alpha);
 }
 #endif

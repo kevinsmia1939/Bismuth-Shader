@@ -199,6 +199,9 @@ void COpenGLSLMaterialRenderer::OnSetMaterial(const video::SMaterial &material,
 		cacheHandler->setBlend(true);
 	}
 
+	if (Driver->queryFeature(EVDF_MRT_BLEND))
+		cacheHandler->applyAuxiliaryBlendMask(material.AuxiliaryBlendMask);
+
 	if (CallBack)
 		CallBack->OnSetMaterial(material);
 }

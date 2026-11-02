@@ -3,6 +3,9 @@
 #define rendered texture0
 #define depthmap texture1
 #define surfaceMap texture2
+#ifndef SCENE_SKY_DIVISOR
+#define SCENE_SKY_DIVISOR 1.0
+#endif
 uniform sampler2D rendered;
 uniform sampler2D depthmap;
 uniform sampler2D surfaceMap;
@@ -167,7 +170,7 @@ vec3 gatherBounce(vec2 uv, vec3 p, vec3 n, vec3 receiver)
 			continue;
 		vec4 donor = texture2D(surfaceMap, sampleUV);
 		// Only opaque nodes provide a reliable normal and diffuse radiance.
-		if (donor.b >= -1.0 || donor.a < 0.99)
+		if (donor.b >= -1.0 || donor.a < 1.0)
 			continue;
 		vec3 q = surfacePosition(sampleUV, -donor.b);
 		vec3 delta = q - p;
@@ -228,7 +231,7 @@ float fogNoise(vec3 p)
 		mix(fogHash(cell + vec3(0, 1, 1)), fogHash(cell + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
-vec3 fogSunVisibility(vec3 position)
+vec3 fogSunVisibility(vec3 position, float skyAccess)
 {
 #ifdef ENABLE_DYNAMIC_SHADOWS
 	// Never sample an absent/stale shadow map, including when shadows are disabled.
@@ -256,17 +259,18 @@ vec3 fogSunVisibility(vec3 position)
 			const float colorLevels = 128.0;
 			const float radix = 129.0;
 			return vec3(floor(blocker.a / (radix * radix)),
-				mod(floor(blocker.a / radix), radix), mod(blocker.a, radix)) / colorLevels;
+				mod(floor(blocker.a / radix), radix), mod(blocker.a, radix)) / colorLevels * skyAccess;
 		}
 #endif
 		float edge = min(min(uvz.x, uvz.y), min(1.0 - uvz.x, 1.0 - uvz.y));
-		return vec3(smoothstep(0.0, 0.04, edge));
+		return vec3(smoothstep(0.0, 0.04, edge) * skyAccess);
 	}
 #endif
-	return vec3(1.0);
+	// An absent map is not evidence of an unoccluded outdoor light path.
+	return vec3(skyAccess);
 }
 
-void integrateFogTransport(vec3 endpoint, out vec3 scattering, out vec3 transmission, out float meanDistance)
+void integrateFogTransport(vec3 endpoint, float skyAccess, out vec3 scattering, out vec3 transmission, out float meanDistance)
 {
 	float distanceToCamera = min(length(endpoint), volumeParams.x);
 	scattering = vec3(0.0);
@@ -276,7 +280,7 @@ void integrateFogTransport(vec3 endpoint, out vec3 scattering, out vec3 transmis
 	vec3 viewRay = normalize(endpoint);
 	vec3 worldRay = normalize((inverseView * vec4(viewRay, 0.0)).xyz);
 	vec3 origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	vec3 ambient = pow(max(fogColor.rgb, vec3(0.0)), vec3(2.2)) * 0.65;
+	vec3 ambient = pow(max(fogColor.rgb, vec3(0.0)), vec3(2.2)) * (0.65 * skyAccess);
 	// Henyey-Greenstein phase, normalized relative to an isotropic phase.
 	const float g = 0.55;
 	float cosine = dot(worldRay, volumeLightDirection);
@@ -309,7 +313,7 @@ void integrateFogTransport(vec3 endpoint, out vec3 scattering, out vec3 transmis
 		vec3 stepTransmission = exp(-density * (end - start) * vec3(0.65, 0.9, 1.25));
 		vec3 visibility = vec3(0.0);
 		if (max(max(direct.r, direct.g), direct.b) > 0.0)
-			visibility = fogSunVisibility(position);
+			visibility = fogSunVisibility(position, skyAccess);
 #ifdef ENABLE_CLOUD_SHADOWS
 		visibility *= cloudSunTransmission(position);
 #endif
@@ -329,12 +333,17 @@ void integrateFogTransport(vec3 endpoint, out vec3 scattering, out vec3 transmis
 	}
 }
 
-vec3 integrateFog(vec3 color, vec3 endpoint)
+vec3 integrateFog(vec3 color, vec3 endpoint, float skyAccess)
 {
 	vec3 scattering, transmission;
 	float unused;
-	integrateFogTransport(endpoint, scattering, transmission, unused);
+	integrateFogTransport(endpoint, skyAccess, scattering, transmission, unused);
 	return color * transmission + scattering;
+}
+
+vec3 integrateFog(vec3 color, vec3 endpoint)
+{
+	return integrateFog(color, endpoint, 1.0);
 }
 #endif
 
@@ -368,15 +377,20 @@ void main(void)
 	vec3 p = viewPosition(uv, min(depth, 0.99999));
 	bool water = false;
 	bool representedSurface = false;
+	// Unknown foreground geometry cannot establish a path to the sky. Nodes
+	// carry their native skylight in the existing floating-point surface alpha.
+	float skyAccess = depth < 0.99999 ? 0.0 : 1.0;
 #ifdef ENABLE_SCENE_SURFACE
 	vec4 surface = texture2D(surfaceMap, uv);
-	water = surface.b > 1.0 && surface.b < 60000.0 && surface.a > 0.99;
-	bool opaque = surface.b < -1.0 && surface.b > -60000.0 && surface.a > 0.99;
+	water = surface.b > 1.0 && surface.b < 60000.0 && surface.a >= 1.0;
+	bool opaque = surface.b < -1.0 && surface.b > -60000.0 && surface.a >= 1.0;
 	// A later object may write nearer depth without node-surface metadata.
 	bool inFrontOfDepth = abs(surface.b) <= p.z + max(0.5, p.z * 0.002);
 	water = water && inFrontOfDepth;
 	opaque = opaque && inFrontOfDepth;
 	representedSurface = water || opaque;
+	if (representedSurface)
+		skyAccess = clamp((surface.a - 1.0) * SCENE_SKY_DIVISOR, 0.0, 1.0);
 	if (water || opaque)
 		p = surfacePosition(uv, abs(surface.b));
 #endif
@@ -384,7 +398,7 @@ void main(void)
 	vec3 scattering = vec3(0.0), transmission = vec3(1.0);
 	float meanDistance = 0.0;
 	bool fogActive = atmosphereEnabled > 0.5 && sceneParams.x > 0.0;
-	if (fogActive) integrateFogTransport(p, scattering, transmission, meanDistance);
+	if (fogActive) integrateFogTransport(p, skyAccess, scattering, transmission, meanDistance);
 	gl_FragColor = vec4(scattering, min(meanDistance, 60000.0));
 	// Endpoint zero marks sky, negative marks a disabled/bypassed volume.
 	gl_FragData[1] = vec4(transmission, fogActive ? (depth < 0.99999 || representedSurface ? min(length(p), 60000.0) : 0.0) : -1.0);
@@ -399,6 +413,7 @@ void main(void)
 		// Sky fallback follows the game's fog tint and daylight, including night.
 		vec3 sky = pow(max(fogColor.rgb, vec3(0.0)), vec3(2.2));
 		sky *= mix(0.65, 1.1, clamp(worldRay.y, 0.0, 1.0));
+		sky *= skyAccess;
 		if (waterCameraInside > 0.5)
 			sky = pow(max(waterScatterColor, vec3(0.0)), vec3(2.2));
 		vec4 reflection = traceReflection(p, normal);
@@ -424,7 +439,7 @@ void main(void)
 #ifdef ENABLE_VOLUMETRIC_FOG
 #ifndef ENABLE_FOG_DENOISING
 	if (atmosphereEnabled > 0.5 && sceneParams.x > 0.0)
-		color = integrateFog(color, p);
+		color = integrateFog(color, p, skyAccess);
 #endif
 #else
 	if (atmosphereEnabled > 0.5 && sceneParams.x > 0.0 && (depth < 1.0 || water)) {
@@ -435,7 +450,7 @@ void main(void)
 			cameraPosition.y + worldRay.y * distanceToCamera, distanceToCamera), 8.0);
 		float forward = pow(max(dot(worldRay, surfaceLight.xyz), 0.0), 12.0);
 		vec3 sky = pow(max(fogColor.rgb, vec3(0.0)), vec3(2.2));
-		vec3 scatter = sky + surfaceLightColor * (forward * surfaceLight.w * 0.25);
+		vec3 scatter = (sky + surfaceLightColor * (forward * surfaceLight.w * 0.25)) * skyAccess;
 		vec3 transmission = exp(-opticalDepth * vec3(0.65, 0.9, 1.25));
 		color = color * transmission + scatter * (1.0 - transmission);
 	}

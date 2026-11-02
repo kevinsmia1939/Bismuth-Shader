@@ -18,7 +18,7 @@ public:
 
 	virtual void reset(PipelineContext &context) override {}
 	virtual void run(PipelineContext &context) override;
-	void setEmissionClearTarget(RenderTarget *target) { m_emission_clear = target; }
+	void setAuxiliaryClearTarget(RenderTarget *target) { m_auxiliary_clear = target; }
 	void setWaterCapture(TextureBufferOutput *target, TextureBuffer *buffer,
 			u8 color, u8 depth)
 	{
@@ -30,7 +30,7 @@ public:
 
 private:
 	RenderTarget *m_target {nullptr};
-	RenderTarget *m_emission_clear = nullptr;
+	RenderTarget *m_auxiliary_clear = nullptr;
 	TextureBufferOutput *m_water_target = nullptr;
 	TextureBuffer *m_water_buffer = nullptr;
 	u8 m_water_color = 0;

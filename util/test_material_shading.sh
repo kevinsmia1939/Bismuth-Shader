@@ -37,6 +37,15 @@ benchmark_frame_log = $material_test_dir/frames.csv
 benchmark_frame_progress = true
 material_test_wait_client = true
 EOF_CONFIG
+if [ "${LUANTI_TEST_SURFACE:-true}" = false ]; then
+ cat >> "$material_test_dir/client.conf" <<EOF_SURFACE
+enable_atmosphere = false
+enable_volumetric_fog = false
+enable_volumetric_clouds = false
+enable_screen_space_reflections = false
+enable_indirect_lighting = false
+EOF_SURFACE
+fi
 if [ -n "${LUANTI_TEST_DYNAMIC_DIRECT:-}" ]; then
  printf '%s\n' "enable_voxel_dynamic_direct=$LUANTI_TEST_DYNAMIC_DIRECT" material_test_dynamic_light=true >> "$material_test_dir/client.conf"
 fi
@@ -96,6 +105,9 @@ fi
 rg -q 'nodes_shader .*MATERIAL_EMISSIVE=1' "$material_test_dir/run.log"
 rg -q 'Material integration: authored, companion and animated nodes placed' "$material_test_dir/run.log"
 rg -q 'Material integration: cutout normal/ORM node placed' "$material_test_dir/run.log"
+if [ "${LUANTI_TEST_SURFACE:-true}" = false ]; then
+ rg -q 'SSAO: emission mask bound' "$material_test_dir/run.log"
+fi
 if [ "${LUANTI_TEST_DIRECTIONAL:-false}" = true ]; then
  for phase in 'zero shadow strength' 'hidden sky lights' 'visible sun' 'visible moon' 'custom light restored'; do
   rg -q "Material directional integration: $phase" "$material_test_dir/run.log"

@@ -128,6 +128,12 @@ def run(args):
     settings=[s for s in (world/'world.mt').read_text().splitlines() if not s.startswith(('load_mod_','gameid'))]
     (world/'world.mt').write_text('\n'.join(settings)+f'\ngameid = {game}\nload_mod_graphics_acceptance = true\nload_mod_graphics_test_game = true\n')
     shutil.copy2(source/'graphics-scenes.json',output/'scenes.json')
+    if args.daylight_cave:
+        manifest=json.loads((world/'graphics-scenes.json').read_text())
+        for scene in manifest['scenes']:
+            if scene['id']=='glowing_cave': scene['timeofday']=0.5
+        (world/'graphics-scenes.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        shutil.copy2(world/'graphics-scenes.json',output/'scenes.json')
     config=output/'client.conf';frames=output/'frames.csv';log=output/'client.log'
     config.write_text((ROOT/'misc/graphics-balanced.conf').read_text()+COMMON+f'''
 screen_w = 640
@@ -146,6 +152,8 @@ benchmark_frame_log = {frames}
 benchmark_frame_progress = true
 benchmark_scene_log = {output/'scene.csv'}
 ''')
+    if args.daylight_cave:
+        with config.open('a') as file: file.write('graphics_acceptance_bright_cave = true\n')
     if args.texture_pack:
         pack=args.texture_pack.resolve()
         assert pack.is_dir(), 'Texture-pack directory is missing'
@@ -198,6 +206,12 @@ benchmark_scene_log = {output/'scene.csv'}
     metadata['saved_config_sha256']=digest(config)
     (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
     results=audit(log.read_text(),frames,output/'scene.csv')
+    if args.daylight_cave:
+        assert 'Graphics acceptance: bright daylight sky over unlit cave' in log.read_text()
+        for result in results:
+            if result['id'] in ('cave_dark','cave_removed','held_removed'):
+                assert abs(result['timeofday']-0.5)<0.002, 'Cave must be tested in daylight'
+                assert max(result['mean_rgb'])<1e-7, 'Unlit cave retains a sky-colored brightness floor'
     if args.texture_pack:
         text=log.read_text()
         assert 'Material maps: normal=0 ORM=1' in text, 'Native ORM companions never bound'
@@ -215,4 +229,5 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--timeout',type=float,default=1200)
     parser.add_argument('--texture-pack',type=Path,help='Optional ORM-only pack for native material compatibility checks')
+    parser.add_argument('--daylight-cave',action='store_true',help='Require unlit caves to remain black against a bright daytime sky/fog')
     run(parser.parse_args())

@@ -387,6 +387,13 @@ public:
 		}
 	}
 
+	void applyAuxiliaryBlendMask(u8 mask)
+	{
+		const bool enabled = Blend[0];
+		for (GLuint i = 1; i < FrameBufferCount && i < 8; ++i)
+			setBlendIndexed(i, enabled && (mask & (1u << i)));
+	}
+
 	// Color Mask.
 
 	void getColorMask(u8 &mask)

@@ -1,6 +1,0 @@
-PASS: local dielectric/conductor GGX, roughness, view response, shared diffuse and reciprocity; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: spectrum filtering, opaque visibility, current positions/colors and removal; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: finite highlight bound, view/geometry hemisphere, disabled and missing-data guards; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node material composition, mapped/unmapped response, alpha and emission=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node material composition, mapped/unmapped response, alpha and emission=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual directional GGX expression with clear, opaque and colored/fractional visibility; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

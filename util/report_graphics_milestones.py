@@ -20,15 +20,19 @@ def shader_hash(with_paths):
     return result.hexdigest()
 
 
+def compress(source,destination):
+    with source.open('rb') as data, destination.open('wb') as target:
+        with gzip.GzipFile(filename='',mode='wb',fileobj=target,mtime=0) as compressed:
+            shutil.copyfileobj(data,compressed)
+
+
 def archive(source,destination):
     destination.mkdir(parents=True,exist_ok=True)
     for name in ('client.log','frames.csv','scene.csv','client.conf','launch.conf','result.json','environment.json','scenes.json'):
         path=source/name
         if not path.is_file(): continue
         if name.endswith(('.csv','.log')):
-            with path.open('rb') as data, (destination/(name+'.gz')).open('wb') as target:
-                with gzip.GzipFile(filename='',mode='wb',fileobj=target,mtime=0) as compressed:
-                    shutil.copyfileobj(data,compressed)
+            compress(path,destination/(name+'.gz'))
         else: shutil.copy2(path,destination/name)
 
 
@@ -81,22 +85,32 @@ def report(args):
             name=f'{condition}-balanced-{repeat}'
             archive(timings/name,out/'raw'/name)
     validation=out/'validation';validation.mkdir(exist_ok=True)
+    def save_log(path):
+        compress(path,validation/(path.name+'.gz'))
+        # Replace this generator's former plain-text copy, preserving its bytes
+        # in gzip rather than normalizing compiler/test-runner whitespace.
+        previous=validation/path.name
+        if previous.is_file(): previous.unlink()
     for name in ('build','unit'):
-        shutil.copy2(Path(str(args.validation_prefix)+'-'+name+'.log'),validation/(name+'.log'))
-    assert 'Unit Test Results: PASSED' in (validation/'unit.log').read_text()
+        path=Path(str(args.validation_prefix)+'-'+name+'.log')
+        text=path.read_text()
+        if name=='unit': assert 'Unit Test Results: PASSED' in text
+        compress(path,validation/(name+'.log.gz'))
+        previous=validation/(name+'.log')
+        if previous.is_file(): previous.unlink()
     for backend in ('native','legacy','mesa'):
         for name in ('scene_statistics','atmosphere','soft_shadows','water_reflections','water_refraction',
                      'water_volume','dynamic_lighting','point_materials','surface_directional','fog_denoise'):
             path=Path(f'{args.validation_prefix}-{name}-{backend}.log')
             text=path.read_text()
             assert 'PASS:' in text and 'Traceback' not in text, path
-            shutil.copy2(path,validation/path.name)
+            save_log(path)
     # This standalone shadowed-fog fixture intentionally uses GLSL 120.
     for backend in ('native','mesa'):
         path=Path(f'{args.validation_prefix}-volumetric_fog-{backend}.log')
         text=path.read_text()
         assert 'PASS:' in text and 'Traceback' not in text, path
-        shutil.copy2(path,validation/path.name)
+        save_log(path)
     sources=list((ROOT/'client/shaders').rglob('*.glsl'))+list((ROOT/'src/client/render').glob('*.cpp'))+list((ROOT/'src/client/render').glob('*.h'))
     sources += [ROOT/p for p in ('src/client/game.cpp','src/client/shadows/dynamicshadows.cpp',
                                  'src/client/shadows/shadow_basis.h','util/graphics_acceptance/init.lua',

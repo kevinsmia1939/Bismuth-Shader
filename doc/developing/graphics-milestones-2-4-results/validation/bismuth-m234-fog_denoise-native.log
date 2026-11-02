@@ -1,7 +1,0 @@
-PASS: actual MRT fog transport, independent RGB transmission and bypass identity; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual fog filter, NaN guards, RGB payloads, depth/sky rejection and lighting/bypass changes; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: 40-frame fog RMSE scattering 0.02032->0.00437, transmission 0.01208->0.00209; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual fog composite, depth-aware upsampling, RGB transmission, sharp scene and alpha; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: fog water/node endpoint compatibility and closer-object rejection; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: fog-aware final TAA with clouds=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: fog-aware final TAA with clouds=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

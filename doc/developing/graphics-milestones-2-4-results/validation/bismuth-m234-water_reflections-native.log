@@ -1,2 +1,0 @@
-PASS: production SSR terrain hit, edge fade, offscreen fallback and foreground/water rejection; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: underwater reflection gain tends continuously to full TIR without a critical-angle flash; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

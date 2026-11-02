@@ -331,7 +331,7 @@
     "game_revision": "4316cc75d419dbf8ab4603a3de7955604a9ff7ab",
     "cpu": "AMD Ryzen 5 4600H with Radeon Graphics"
   },
-  "source_commit": "b8ad5a0fb99405c4c432bc55a0ec11c3cee3e3b7",
+  "source_commit": "b3146458261117361bb0519915e7b51687856ea5",
   "source_dirty": true,
   "source_files": {
     "client/shaders/3d_interlaced_merge/opengl_fragment.glsl": "83984a99e1c6ac84846ab470215fbdea11f4b573414df695022f14a427ce9250",

@@ -1,6 +1,0 @@
-MESA-EGL: warning: Not allowed to force software rendering when API explicitly selects a hardware device.
-MESA-EGL: warning: Not allowed to force software rendering when API explicitly selects a hardware device.
-Renderer: llvmpipe (LLVM 23.1.3, 256 bits); GLSL 330 core
-PASS: water GLSL; Beer-Lambert/RGB absorption, turbidity, scattered color, zero absorption, path cap, deep fallback, foreground rejection, binding guard Snell entry/exit and TIR; volume=False. No images captured.
-Renderer: llvmpipe (LLVM 23.1.3, 256 bits); GLSL 330 core
-PASS: water GLSL; Beer-Lambert/RGB absorption, turbidity, scattered color, zero absorption, path cap, deep fallback, foreground rejection, binding guard Snell entry/exit and TIR; volume=True. No images captured.

@@ -1,6 +1,0 @@
-PASS: actual node material illumination, shadow enable/fade/visibility, hidden source and geometric guards; shadows=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node material illumination, shadow enable/fade/visibility, hidden source and geometric guards; shadows=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node dielectric fallback without material-map capability; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node water sun glint, disabled/faded shadows and native light preservation; shadows=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual node water sun glint, disabled/faded shadows and native light preservation; shadows=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
-PASS: actual emissive material/cloud composition separates native glow and directional reflections; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

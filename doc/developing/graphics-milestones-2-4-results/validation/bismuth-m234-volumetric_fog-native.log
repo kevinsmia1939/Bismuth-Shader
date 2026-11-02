@@ -1,2 +1,0 @@
-Renderer: NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 120
-PASS: volumetric fog GLSL; analytic transmission, opaque/colored occlusion, shadow guard, zero density, underwater bypass, sky, distance/height, sample counts and camera offset. No images captured.

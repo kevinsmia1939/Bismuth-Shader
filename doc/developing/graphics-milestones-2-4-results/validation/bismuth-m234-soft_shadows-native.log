@@ -1,7 +1,0 @@
-PASS: PCSS quality=0, colored=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: PCSS quality=0, colored=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: PCSS quality=1, colored=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: PCSS quality=1, colored=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: PCSS quality=2, colored=False; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: PCSS quality=2, colored=True; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: preserved translucent foliage smoothing

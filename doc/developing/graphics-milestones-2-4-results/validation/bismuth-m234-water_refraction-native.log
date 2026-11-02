@@ -1,4 +1,0 @@
-Renderer: NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: water GLSL; Beer-Lambert/RGB absorption, turbidity, scattered color, zero absorption, path cap, deep fallback, foreground rejection, binding guard Snell entry/exit and TIR; volume=False. No images captured.
-Renderer: NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2; GLSL 330 core
-PASS: water GLSL; Beer-Lambert/RGB absorption, turbidity, scattered color, zero absorption, path cap, deep fallback, foreground rejection, binding guard Snell entry/exit and TIR; volume=True. No images captured.

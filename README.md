@@ -24,6 +24,10 @@ Rendering features already in the tree include:
 - TAA, SSAO, exposure, tone mapping and bloom. Motion blur and depth of field
   remain optional.
 
+The active follow-up is the [renderer lighting replacement](doc/developing/renderer-lighting-migration.md):
+remove native visual lighting first, then complete world lighting coverage and
+GI before final preset tuning. The torch approach regression remains open.
+
 This is work in progress. The combined renderer passes the milestone 6 checks;
 final performance tuning and preset delivery remain milestone 7.
 
@@ -38,6 +42,7 @@ The project follows these milestones:
 | 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Implemented and checked in Minetest Game; material cost measured |
 | 6. Lighting, foliage and image stability | Smooth lamp falloff, translucent grass/leaves, restrained sand/snow sparkle and stable TAA/exposure/bloom | Implemented and checked in Minetest Game; matched costs recorded |
 | 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
+| 8. Vulkan backend | Vulkan rendering with lighting/effect parity, validation and measured performance | [Planned](doc/developing/vulkan-renderer.md), after lighting replacement and preset delivery |
 
 [Milestone 6](doc/developing/graphics-milestone-6.md) adds smoother ground lighting
 around torches and other emitters, grass/leaf transmission and sand/snow sparkle.

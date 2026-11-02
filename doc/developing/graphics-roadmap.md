@@ -1,5 +1,14 @@
 # Graphics goal and remaining work
 
+The active follow-up is the [five-stage renderer lighting replacement](renderer-lighting-migration.md).
+Native visual lighting removal comes first; no brightness adapter is planned.
+The torch approach regression must be fixed before final preset delivery.
+
+[Milestone 8: Vulkan renderer](vulkan-renderer.md) follows the lighting migration
+and preset delivery. It covers backend bring-up, shared shader compilation,
+rendering-feature parity, validation and measured performance. It is planned, not
+part of the current stages 1–5 implementation scope.
+
 The current target is a semi-realistic preset. The feature inventory later in
 this document preserves the earlier open-ended graphics goal.
 [Milestones 2–4](graphics-milestones-2-4.md) are implemented and checked in the

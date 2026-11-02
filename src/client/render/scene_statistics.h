@@ -6,7 +6,7 @@
 #include <fstream>
 
 // Opt-in acceptance-test telemetry: read one reduced RGBA32F texel per frame.
-// No readback, pass or allocation is installed without benchmark_scene_log.
+// Installed only by benchmark_scene_log or benchmark_final_scene_log.
 class SceneStatisticsStep : public TrivialRenderStep
 {
 public:

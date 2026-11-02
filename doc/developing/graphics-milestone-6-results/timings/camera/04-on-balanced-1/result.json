@@ -1,0 +1,88 @@
+{
+  "profile": "balanced",
+  "repeat": 1,
+  "config_sha256": "a6bde27f7a55be65e6232dcc7b36147b8b6c54441ee714ad0fd91bb3ed76b12e",
+  "launch_config_sha256": "0678dbe7330e3f07897bb3bf5534fb544f1d2eb09f53a5d576be29db4eb8f0c6",
+  "profile_sha256": "168845e59fb4b6cced279a85fcb2d45156f6cb7391375ef0b6db65b154ee7f48",
+  "scene_manifest_sha256": "30f8a18fa06c179595d29197253c2b340468ab43794732a0bc5d502ef77e1f36",
+  "fixture_sha256": "e2391dcf52f5509beb60fa8defba70434b468ce4dacf06d35bf8a3fb25637458",
+  "game": "minetest",
+  "game_adapter_sha256": "5e19d1ee0f49869ab7f143cf99f632e3962e01a4618e1c9407838d3a836a40ca",
+  "overrides": [
+    "texture_path=/home/kevin/Dropbox/Desktop/software/luanti/textures/bismuth-minetest-game"
+  ],
+  "scenes": [
+    "forest",
+    "sunset_river",
+    "glowing_cave",
+    "underwater"
+  ],
+  "binary_sha256": "6de3fe32dec98c23ac61fc1b031564bb76596e4bd31ba2dc456b9d544045ed35",
+  "shader_sha256": "7e189581cebc926451a96fa5bf5157020a4b0e6f8faef213ecc98db462e8b982",
+  "results": [
+    {
+      "scene": "forest",
+      "frames": 544,
+      "seconds": 11.9956509974,
+      "fps": 45.349768855221726,
+      "median_ms": 21.89250011,
+      "p95_ms": 25.160100033,
+      "p99_ms": 25.890819836000002,
+      "mean_draw_cpu_ms": 21.63915257352941,
+      "mean_drawcalls": 124.34007352941177,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "sunset_river",
+      "frames": 453,
+      "seconds": 11.988570000989998,
+      "fps": 37.78599115345633,
+      "median_ms": 26.10599995,
+      "p95_ms": 29.674200344,
+      "p99_ms": 30.1864398276,
+      "mean_draw_cpu_ms": 25.862333333333336,
+      "mean_drawcalls": 178.2913907284768,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "glowing_cave",
+      "frames": 431,
+      "seconds": 11.95817700209,
+      "fps": 36.04228302731023,
+      "median_ms": 27.65499987,
+      "p95_ms": 31.928999349999998,
+      "p99_ms": 34.264099970999986,
+      "mean_draw_cpu_ms": 27.174781902552205,
+      "mean_drawcalls": 48.65429234338747,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "scene": "underwater",
+      "frames": 498,
+      "seconds": 11.987435989089999,
+      "fps": 41.543496078163805,
+      "median_ms": 23.82449992,
+      "p95_ms": 27.205650229499998,
+      "p99_ms": 28.5845295127,
+      "mean_draw_cpu_ms": 23.524718875502007,
+      "mean_drawcalls": 190.82530120481928,
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "gpu_before": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 80, 1830 MHz, 6000 MHz, 24.09 W",
+  "gpu_after": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 81, 1830 MHz, 6000 MHz, 24.48 W",
+  "driver_environment": {
+    "DISPLAY": ":0",
+    "WAYLAND_DISPLAY": "wayland-1",
+    "SDL_VIDEODRIVER": "wayland",
+    "LIBGL_ALWAYS_SOFTWARE": null,
+    "__NV_PRIME_RENDER_OFFLOAD": null,
+    "__GL_SYNC_TO_VBLANK": null,
+    "__GL_SHADER_DISK_CACHE": "1",
+    "__GL_SHADER_DISK_CACHE_PATH": "/home/kevin/Dropbox/Desktop/software/luanti/cache/bismuth-gl"
+  }
+}

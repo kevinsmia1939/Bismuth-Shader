@@ -30,12 +30,18 @@ enable_sound = false
 enable_post_processing = ${LUANTI_TEST_POST_PROCESSING:-true}
 enable_material_shading = ${LUANTI_TEST_MATERIALS:-true}
 enable_dynamic_shadows = ${LUANTI_TEST_SHADOWS:-true}
+enable_bloom = ${LUANTI_TEST_BLOOM:-true}
+enable_auto_exposure = ${LUANTI_TEST_EXPOSURE:-true}
 texture_path = $material_test_dir/texturepack
 mg_name = singlenode
 time_speed = 0
 benchmark_frame_log = $material_test_dir/frames.csv
 benchmark_frame_progress = true
 material_test_wait_client = true
+material_test_surface_materials = ${LUANTI_TEST_SURFACE_MATERIALS:-false}
+leaves_style = ${LUANTI_TEST_LEAVES:-fancy}
+enable_waving_leaves = ${LUANTI_TEST_WAVING:-true}
+enable_waving_plants = ${LUANTI_TEST_WAVING:-true}
 EOF_CONFIG
 if [ "${LUANTI_TEST_SURFACE:-true}" = false ]; then
  cat >> "$material_test_dir/client.conf" <<EOF_SURFACE
@@ -105,6 +111,12 @@ fi
 rg -q 'nodes_shader .*MATERIAL_EMISSIVE=1' "$material_test_dir/run.log"
 rg -q 'Material integration: authored, companion and animated nodes placed' "$material_test_dir/run.log"
 rg -q 'Material integration: cutout normal/ORM node placed' "$material_test_dir/run.log"
+if [ "${LUANTI_TEST_SURFACE_MATERIALS:-false}" = true ]; then
+ rg -q 'Material integration: foliage and sand/snow compatibility nodes placed' "$material_test_dir/run.log"
+ for variant in 'MATERIAL_FOLIAGE=' 'MATERIAL_SPARKLE=1' 'MATERIAL_SPARKLE=2'; do
+  rg -q "$variant" "$material_test_dir/run.log"
+ done
+fi
 if [ "${LUANTI_TEST_SURFACE:-true}" = false ]; then
  rg -q 'SSAO: emission mask bound' "$material_test_dir/run.log"
 fi

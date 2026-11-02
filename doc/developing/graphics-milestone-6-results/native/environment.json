@@ -1,0 +1,33 @@
+{
+  "binary_sha256": "6de3fe32dec98c23ac61fc1b031564bb76596e4bd31ba2dc456b9d544045ed35",
+  "gpu": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 51, 300 MHz, 405 MHz, 3.50 W",
+  "game": "minetest",
+  "runtime_environment": {
+    "DISPLAY": ":0",
+    "WAYLAND_DISPLAY": "wayland-1",
+    "SDL_VIDEODRIVER": "wayland",
+    "__GL_SHADER_DISK_CACHE": "1",
+    "__GL_SHADER_DISK_CACHE_PATH": "/home/kevin/Dropbox/Desktop/software/luanti/cache/bismuth-gl",
+    "__EGL_VENDOR_LIBRARY_FILENAMES": null,
+    "LD_PRELOAD": "/tmp/bismuth-m6/native-complete/resize-test-client.so"
+  },
+  "game_adapter_sha256": "5e19d1ee0f49869ab7f143cf99f632e3962e01a4618e1c9407838d3a836a40ca",
+  "config_sha256": "f69e75a8ee71d4aff86cc81bf4874061a4e5dcb83875dd27453bb9427a8fadea",
+  "source_map_sha256": "d5a67b5302a195473de0a24c91c8e8bcec55397afcbdd69022e9f5f4e33db5d4",
+  "fixture_sha256": "c242b3f75d5abc6024096f81c091fa1d10c8c0c2b3861176ccf1b5ee7fa44ad7",
+  "shader_sha256": "f8d1b10d1002f04b33d48a51dde6f4cac8fe79def8f881eade78b03fef5fd84c",
+  "texture_pack_sha256": {
+    "README.md": "44271edbd7d1d86b3bbad8aacbeacbb143ed9eb902567c5814eea36bb0760178",
+    "default_cobble_orm.png": "2f43ef8427938b33e4cb7f1a69824332afc7a937bc4bd58bab1c598bd851291e",
+    "default_copper_block_orm.png": "d206c244208e3b4f7e0daca993bac72f8c3565f505b3e7525ae52ad19fcc1f75",
+    "default_gold_block_orm.png": "1f0d951930d3196276e51b29f8af14aa822e2b5e916a7d4e48fc4b0337ca9b0a",
+    "default_mese_block_orm.png": "253d77b71b7728404d0743956cc5ec204aa69aa6a942b28acfb9e20f9e5d4b75",
+    "default_meselamp_orm.png": "3cb3f3ab5b6383b59a45a064c40475ea6e1cefeafd6b77903d5120aaf844f08d",
+    "default_steel_block_orm.png": "d665ae6814ba88329446c2a14a155521475f3bce6d8e1d02769d606d4487dd2f",
+    "default_stone_orm.png": "a71ca795ca6a329cc0f72867584e2f066d75be4cdab78abf74c68fa001fbda76",
+    "texture_pack.conf": "29307a4cd0b4bfbe6954f8d417908af8250701ddae347b8fdf24cb61784aa8d8"
+  },
+  "saved_config_sha256": "863d1b0a7120977fe3e1e7172c7d4557e1026e2ae7ba9ec5bbc164b2e76b2c20",
+  "resize_hook_source_sha256": "1f9b97a4a4d98ce546635b2a9072dfc10f44ac50168160d9312b4b84ce8cb8d9",
+  "resize_hook_library_sha256": "b8ca692b53bde401a210649ee86226ec82ac49acc18d82cc1deb5d9725f2b6ee"
+}

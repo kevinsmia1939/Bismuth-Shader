@@ -91,6 +91,13 @@ void main(void)
 				vec3 nowColor = toYCoCg(current);
 				float contrast = abs(oldColor.x - nowColor.x) /
 					max(0.1, max(oldColor.x, nowColor.x));
+				// Animated cutouts and textures can change hue at equal brightness.
+				// Luminance-only rejection retains their obsolete color for many
+				// frames even when depth and the local color bounds still match.
+				float chromaChange = dot(abs(oldColor.yz - nowColor.yz), vec2(1.0));
+				float chromaScale = max(0.1, max(dot(abs(oldColor.yz), vec2(1.0)),
+					dot(abs(nowColor.yz), vec2(1.0))));
+				contrast = max(contrast, chromaChange / chromaScale);
 				float movement = length((historyUV - uv) / texelSize0);
 				float weight = taaParams.w * exp(-movement * 0.03) *
 					(1.0 - min(contrast, 1.0) * 0.8);

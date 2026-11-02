@@ -127,7 +127,7 @@ def moving_lights():
                 distance=length/10
                 cosine=1 if source_z>40+midpoint else -1
                 phase=(1-g*g)/(1+g*g-2*g*cosine)**1.5
-                weight=phase*(1-distance/16)**2/(6*max(distance*distance,1))
+                weight=phase*max(0,1-(distance/16)**4)**2/(6*(distance*distance+4))
                 for c,sigma in enumerate(SIGMA):
                     wet_length=length if water_end is None else min(length,water_end-40-midpoint)
                     incoming=math.exp(-sigma*wet_length*0.98/10)

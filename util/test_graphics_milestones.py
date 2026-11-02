@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import shutil
@@ -14,7 +15,7 @@ import time
 from benchmark_graphics import ROOT, COMMON, digest, gpu_state, world_game, copy_game_adapter
 
 
-def audit(log, frames, statistics=None):
+def audit(log, frames, statistics=None, surface_materials=False, resize=False, final_color=False):
     current=None;ready={};begins={};prepared={};ends=[]
     sources=None;source_rgb=None;held=None;warm=False;wet=False
     for line in log.splitlines():
@@ -45,6 +46,9 @@ def audit(log, frames, statistics=None):
     by_id={e['id']:e for e in ends}
     expected={'forest_movement','sunset_transition','river_reflections','water_entry','underwater_lamp',
               'water_exit','cave_dark','cave_placed','cave_removed','held_movement','held_removed'}
+    if surface_materials:
+        expected|={'surface_daylight','surface_grazing','surface_dark','surface_placed',
+                   'surface_removed','surface_held','surface_held_removed'}
     assert set(by_id)==expected, 'Incomplete replay stages'
     assert by_id['cave_placed']['sources']>by_id['cave_dark']['sources'], 'Placed glowstone did not reach the worker field'
     assert by_id['cave_removed']['sources']==by_id['cave_dark']['sources'], 'Removed glowstone left stale source state'
@@ -59,7 +63,10 @@ def audit(log, frames, statistics=None):
         selected=[r for r in rows if float(r['time_us'])<=event['time_us'] and
                   float(r['time_us'])-float(r['frame_ms'])*1000>=event['begin_us']]
         assert len(selected)>=30, f'Insufficient completed frames for {event["id"]}'
-        assert {(int(r['width']),int(r['height'])) for r in selected}=={(640,360)}
+        sizes={(int(r['width']),int(r['height'])) for r in selected}
+        expected_sizes={(640,360),(800,450),(720,480)} if resize and event['id']=='surface_daylight' else {(640,360)}
+        assert sizes==expected_sizes, f'Unexpected or missing frame sizes for {event["id"]}: {sizes}'
+        event['frame_sizes']=sorted(sizes)
         seconds=sum(float(r['frame_ms']) for r in selected)/1000
         assert seconds>=4.8, f'Insufficient frame coverage for {event["id"]}'
         event.update({'frames':len(selected),'sampled_seconds':seconds})
@@ -99,7 +106,14 @@ def audit(log, frames, statistics=None):
                 source_delta=[a-b for a,b in zip(by_id[stage]['emission_rgb'],by_id['cave_dark']['emission_rgb'])]
                 cosine=sum(a*b for a,b in zip(delta,source_delta))/max(
                     math.sqrt(sum(v*v for v in delta)*sum(v*v for v in source_delta)),1e-12)
-                assert min(delta)>0 and cosine>0.95, f'Placed lamp color disagrees with native emission: {delta}, {source_delta}'
+                # Source chromaticity is checked tightly before camera effects.
+                # Filmic compression and graded surface contributions change
+                # the final image's aggregate chromaticity nonlinearly.
+                threshold=0.90 if final_color else 0.95
+                assert min(delta)>0 and cosine>threshold, f'Placed lamp color disagrees with native emission: {delta}, {source_delta}'
+                if final_color:
+                    dominant=max(range(3),key=lambda channel:source_delta[channel])
+                    assert delta[dominant]==max(delta), 'Final grading lost the lamp dominant color'
                 by_id[stage]['emission_color_cosine']=cosine
         for stage in ('cave_removed','held_removed'):
             event=by_id[stage]
@@ -112,6 +126,13 @@ def audit(log, frames, statistics=None):
                     event['clear_latency_ms']=(int(row['time_us'])-event['prepare_us'])/1000
                     break
             assert event.get('clear_latency_ms',float('inf'))<1000, f'Lamp removal must clear actual radiance within one second: {stage}'
+        if surface_materials:
+            dark=by_id['surface_dark']['mean_luminance']
+            assert max(by_id['surface_dark']['mean_rgb'])<1e-7, 'Covered surface fixtures must stay black'
+            for stage in ('surface_placed','surface_held'):
+                assert by_id[stage]['mean_luminance']>dark+1e-5, 'Surface light must illuminate native ground'
+            for stage in ('surface_removed','surface_held_removed'):
+                assert max(by_id[stage]['mean_rgb'])<1e-7, 'Removed surface light leaves residual brightness'
     return ends
 
 
@@ -151,9 +172,12 @@ shadow_update_frames = 4
 benchmark_frame_log = {frames}
 benchmark_frame_progress = true
 benchmark_scene_log = {output/'scene.csv'}
+benchmark_final_scene_log = {output/'final-scene.csv'}
 ''')
     if args.daylight_cave:
         with config.open('a') as file: file.write('graphics_acceptance_bright_cave = true\n')
+    if args.surface_materials:
+        with config.open('a') as file: file.write('graphics_acceptance_surface_materials = true\n')
     if args.texture_pack:
         pack=args.texture_pack.resolve()
         assert pack.is_dir(), 'Texture-pack directory is missing'
@@ -161,7 +185,16 @@ benchmark_scene_log = {output/'scene.csv'}
     # The client can save additional settings/reformat this file at shutdown.
     # Keep its exact launch input as well as the resulting saved configuration.
     shutil.copy2(config,output/'launch.conf')
+    environment=os.environ.copy()
+    resizer=None
+    if args.resize:
+        assert args.surface_materials, '--resize requires --surface-materials'
+        from test_window_resize import TestWindowResize
+        resizer=TestWindowResize(output)
+        resizer.configure(environment)
     metadata={'binary_sha256':digest(ROOT/'bin/luanti'),'gpu':gpu_state(),'game':game,
+              'runtime_environment':{key:environment.get(key) for key in ('DISPLAY','WAYLAND_DISPLAY','SDL_VIDEODRIVER',
+                  '__GL_SHADER_DISK_CACHE','__GL_SHADER_DISK_CACHE_PATH','__EGL_VENDOR_LIBRARY_FILENAMES','LD_PRELOAD')},
               'game_adapter_sha256':digest(ROOT/'util/graphics_test_game/init.lua'),
               'config_sha256':digest(config),'source_map_sha256':before,
               'fixture_sha256':digest(ROOT/'util/graphics_acceptance/init.lua'),
@@ -170,11 +203,13 @@ benchmark_scene_log = {output/'scene.csv'}
         metadata['texture_pack_sha256']={p.name:digest(p) for p in sorted(pack.iterdir()) if p.is_file()}
     (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
     start=time.monotonic();phase=None;prepared_at=0;progress=0;offset=0
+    resize_start=None;resize_events=[]
     command=[str(ROOT/'bin/luanti'),'--config',str(config),'--go','--world',str(world),
              '--gameid',game,'--name','GraphicsAcceptance','--info']
     with log.open('w') as file:
-        process=subprocess.Popen(command,stdout=file,stderr=subprocess.STDOUT)
+        process=subprocess.Popen(command,stdout=file,stderr=subprocess.STDOUT,env=environment)
         try:
+            if resizer is not None: resizer.pid=process.pid
             while process.poll() is None:
                 assert time.monotonic()-start<args.timeout, f'Runtime timeout; inspect {log}'
                 text=log.read_text(errors='replace');complete=text.rfind('\n')+1
@@ -184,17 +219,28 @@ benchmark_scene_log = {output/'scene.csv'}
                         if event['event']=='prepare':
                             phase=event['index'];prepared_at=event['time_us'];progress=0
                             print('Preparing '+event['id'],flush=True)
+                        if args.resize and event['event']=='begin' and event['id']=='surface_daylight':
+                            resize_start=time.monotonic()
                     match=re.search(r'Frame benchmark: progress time_us=(\d+)',line)
                     if match and phase is not None and int(match[1])>prepared_at+500000:
                         progress+=1
                         if progress>=2: (world/f'graphics-phase-{phase}-ready').touch()
                 offset=complete
+                if resize_start is not None and len(resize_events)<3:
+                    schedule=[(1.5,800,450),(3.0,720,480),(4.5,640,360)]
+                    delay,width,height=schedule[len(resize_events)]
+                    if time.monotonic()-resize_start>=delay:
+                        changed=resizer.resize(width,height)
+                        changed['elapsed_seconds']=time.monotonic()-resize_start
+                        resize_events.append(changed)
+                        print(f'Resized test client to {width}x{height}',flush=True)
                 time.sleep(0.1)
         finally:
             if process.poll() is None:
                 process.terminate()
                 try: process.wait(timeout=10)
                 except subprocess.TimeoutExpired: process.kill();process.wait()
+            if resizer is not None: resizer.close()
     assert process.returncode==0, f'Client exit {process.returncode}; inspect {log}'
     assert digest(source/'map.sqlite')==before, 'Original prepared world changed'
     assert digest(ROOT/'bin/luanti')==metadata['binary_sha256'], 'Binary changed during replay'
@@ -205,7 +251,20 @@ benchmark_scene_log = {output/'scene.csv'}
         assert metadata['texture_pack_sha256']=={p.name:digest(p) for p in sorted(pack.iterdir()) if p.is_file()}, 'Material pack changed during replay'
     metadata['saved_config_sha256']=digest(config)
     (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
-    results=audit(log.read_text(),frames,output/'scene.csv')
+    results=audit(log.read_text(),frames,output/'scene.csv',args.surface_materials,args.resize)
+    final_results=audit(log.read_text(),frames,output/'final-scene.csv',args.surface_materials,args.resize,True)
+    if args.resize:
+        assert len(resize_events)==3, 'Window resize sequence did not complete'
+        for event in resize_events:
+            marker=f'Benchmark SDL resize: pid={event["pid"]} sequence={event["sequence"]} size={event["width"]}x{event["height"]}'
+            assert marker in log.read_text(), 'Client did not apply its requested SDL resize'
+        metadata['resize_hook_source_sha256']=resizer.source_sha256
+        metadata['resize_hook_library_sha256']=resizer.library_sha256
+        (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
+        (output/'resize-events.json').write_text(json.dumps(resize_events,indent=2)+'\n')
+    if args.surface_materials:
+        for tag in ('MATERIAL_FOLIAGE=', 'MATERIAL_SPARKLE=1', 'MATERIAL_SPARKLE=2'):
+            assert tag in log.read_text(), 'Missing native shader variant: '+tag
     if args.daylight_cave:
         assert 'Graphics acceptance: bright daylight sky over unlit cave' in log.read_text()
         for result in results:
@@ -219,8 +278,15 @@ benchmark_scene_log = {output/'scene.csv'}
         # Several native assets use _normal for color variants. They are not maps.
         assert 'Material normal mipmaps:' not in text, 'Unexpected normal map from server color media'
     (output/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+    (output/'final-results.json').write_text(json.dumps(final_results,indent=2)+'\n')
+    if args.surface_materials:
+        prepared=output/'surface-prepared-world'
+        shutil.copytree(world,prepared,ignore=shutil.ignore_patterns('worldmods','graphics-phase-*-ready'))
+        manifest=json.loads((prepared/'graphics-scenes.json').read_text())
+        manifest['scenes'].append(json.loads((prepared/'graphics-surface-scene.json').read_text()))
+        (prepared/'graphics-scenes.json').write_text(json.dumps(manifest,indent=2)+'\n')
     shutil.rmtree(world)
-    print(f'PASS: 11 native {game} transition stages; evidence in {output}',flush=True)
+    print(f'PASS: {len(results)} native {game} transition stages; evidence in {output}',flush=True)
 
 
 if __name__=='__main__':
@@ -230,4 +296,6 @@ if __name__=='__main__':
     parser.add_argument('--timeout',type=float,default=1200)
     parser.add_argument('--texture-pack',type=Path,help='Optional ORM-only pack for native material compatibility checks')
     parser.add_argument('--daylight-cave',action='store_true',help='Require unlit caves to remain black against a bright daytime sky/fog')
+    parser.add_argument('--surface-materials',action='store_true',help='Add native foliage/sand/snow, enclosed lighting and adaptive exposure fixtures')
+    parser.add_argument('--resize',action='store_true',help='Resize only the disposable client SDL window during its surface fixture (SDL2/Linux)')
     run(parser.parse_args())

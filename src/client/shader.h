@@ -248,6 +248,9 @@ struct ShaderFeatures {
 	bool skinning = false;
 	/// Preserve native self illumination through material shading and surface AO.
 	bool emissive_surface = false;
+	/// Optional thin foliage transmission and sand/snow grain response.
+	float foliage_translucency = 0.0f;
+	u8 sparkle_material = 0;
 
 	void setConstants(ShaderConstants &consts) const;
 };

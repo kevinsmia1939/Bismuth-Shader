@@ -42,6 +42,13 @@ emissive light, including color transfer from hidden/off-screen surfaces, rather
 than using already-rendered scene pixels. Direct emission is separate from the
 reflected field, avoiding an extra direct-emission contribution in the GI term.
 
+With `voxel_light_soft_falloff`, the direct-light lobe beside an exposed voxel
+face uses irradiance at that face, reusing the surface evaluation above. This
+keeps low floor torches from falling below their elevated air-probe sample
+plane. The corrected baked lobe excludes GPU frame-direct lamps and sunlight;
+complete incident light still feeds reflection. Other air-center lobes and the
+atlas layout remain unchanged. See [smooth local light](local-light-falloff.md).
+
 This is local, diffuse voxel radiosity, not path tracing. A single finite volume
 cannot represent an infinite world, fine mesh geometry, specular transport, or
 all angular radiance detail. Six receiver lobes approximate directionality.

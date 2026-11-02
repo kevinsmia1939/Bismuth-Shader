@@ -22,7 +22,9 @@ New history is rejected on first use, resizing, projection/FOV changes, camera
 mode changes, large position or orientation changes, and frame gaps over 250 ms.
 The per-pixel depth test rejects disoccluded geometry. A 3x3 YCoCg variance and
 neighborhood clamp bounds previous colors, with lower history weight for motion
-and large luminance changes. Water receives a reactive cap to reduce trails from
+and large luminance or normalized-chroma changes. Chroma rejection clears
+stale hues in equal-brightness animated textures; the milestone 6 feedback test
+reduces four-frame stale-color energy from 0.6561 to about 0.03671. Water receives a reactive cap to reduce trails from
 animated reflections. Each stereo eye owns independent history and reprojection
 state, including anaglyph and side-by-side modes.
 

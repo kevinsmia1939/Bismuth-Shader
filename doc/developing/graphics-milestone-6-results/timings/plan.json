@@ -1,0 +1,69 @@
+{
+  "binary_sha256": "6de3fe32dec98c23ac61fc1b031564bb76596e4bd31ba2dc456b9d544045ed35",
+  "shader_sha256": "f8d1b10d1002f04b33d48a51dde6f4cac8fe79def8f881eade78b03fef5fd84c",
+  "world_map_sha256": "d5a67b5302a195473de0a24c91c8e8bcec55397afcbdd69022e9f5f4e33db5d4",
+  "surface_map_sha256": "91e8c8c9d0528f82cbd11668c5086fb8841321c6d93168cbec9225db140dc762",
+  "world_manifest_sha256": "36af8c23ebce7d20442b27cbd201b1b3ddcb4ddf18647d29a9572a5f2a7e7ee4",
+  "surface_manifest_sha256": "81acf0d9d694d2f5d926794a8c3441c73f85dbf69cedc082bd544f1ca4b6fe41",
+  "profile_sha256": "168845e59fb4b6cced279a85fcb2d45156f6cb7391375ef0b6db65b154ee7f48",
+  "pack_sha256": {
+    "README.md": "44271edbd7d1d86b3bbad8aacbeacbb143ed9eb902567c5814eea36bb0760178",
+    "default_cobble_orm.png": "2f43ef8427938b33e4cb7f1a69824332afc7a937bc4bd58bab1c598bd851291e",
+    "default_copper_block_orm.png": "d206c244208e3b4f7e0daca993bac72f8c3565f505b3e7525ae52ad19fcc1f75",
+    "default_gold_block_orm.png": "1f0d951930d3196276e51b29f8af14aa822e2b5e916a7d4e48fc4b0337ca9b0a",
+    "default_mese_block_orm.png": "253d77b71b7728404d0743956cc5ec204aa69aa6a942b28acfb9e20f9e5d4b75",
+    "default_meselamp_orm.png": "3cb3f3ab5b6383b59a45a064c40475ea6e1cefeafd6b77903d5120aaf844f08d",
+    "default_steel_block_orm.png": "d665ae6814ba88329446c2a14a155521475f3bce6d8e1d02769d606d4487dd2f",
+    "default_stone_orm.png": "a71ca795ca6a329cc0f72867584e2f066d75be4cdab78abf74c68fa001fbda76",
+    "texture_pack.conf": "29307a4cd0b4bfbe6954f8d417908af8250701ddae347b8fdf24cb61784aa8d8"
+  },
+  "duration": 12,
+  "warmup": 8,
+  "order": [
+    "on",
+    "off",
+    "off",
+    "on"
+  ],
+  "cases": {
+    "falloff": [
+      [
+        "glowing_cave"
+      ],
+      {
+        "voxel_light_soft_falloff": "false"
+      }
+    ],
+    "foliage": [
+      [
+        "forest"
+      ],
+      {
+        "enable_translucent_foliage": "false"
+      }
+    ],
+    "grain": [
+      [
+        "surface_materials"
+      ],
+      {
+        "enable_material_sparkle": "false"
+      }
+    ],
+    "camera": [
+      [
+        "forest",
+        "sunset_river",
+        "glowing_cave",
+        "underwater"
+      ],
+      {
+        "antialiasing": "none",
+        "enable_auto_exposure": "false",
+        "enable_bloom": "false",
+        "tone_mapping": "false",
+        "enable_camera_vignette": "false"
+      }
+    ]
+  }
+}

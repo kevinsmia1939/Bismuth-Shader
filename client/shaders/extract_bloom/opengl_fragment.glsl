@@ -5,7 +5,6 @@ struct ExposureParams {
 };
 
 uniform sampler2D rendered;
-uniform mediump float bloomStrength;
 uniform ExposureParams exposureParams;
 
 CENTROID_ VARYING_ mediump vec2 varTexCoord;
@@ -26,7 +25,9 @@ void main(void)
 	color = pow(color, vec3(2.2));
 #endif
 
-	color *= exposureParams.compensationFactor * bloomStrength;
+	// This linear chain also meters exposure. Apply bloom gain only at the
+	// final composite, so zero bloom cannot erase the metering signal.
+	color *= exposureParams.compensationFactor;
 
 #ifdef ENABLE_AUTO_EXPOSURE
 	color *= exposure;

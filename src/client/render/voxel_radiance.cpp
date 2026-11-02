@@ -68,22 +68,43 @@ struct Source {
 };
 struct Surface { int face; int adjacent; v3f normal; v3f direct; };
 
-v3f irradiance(const Grid &grid, const std::vector<Source> &sources, v3f p, v3f normal, int self = -1)
+float attenuation(float squared_distance, bool soft)
+{
+	// Keep worker direct/bounce transport consistent with voxelLightAttenuation
+	// in the fragment shader, including its soft core and smooth finite range.
+	if (!soft) {
+		const float fade = std::max(0.0f, 1.0f - std::sqrt(squared_distance) / 16.0f);
+		return fade * fade / std::max(squared_distance, 1.0f);
+	}
+	const float range = squared_distance / 256.0f;
+	const float window = std::max(0.0f, 1.0f - range * range);
+	return window * window / (squared_distance + 4.0f);
+}
+
+v3f irradiance(const Grid &grid, const std::vector<Source> &sources, v3f p, v3f normal,
+		int self, v3f &baked)
 {
 	v3f sum;
+	baked = v3f();
 	for (const auto &source : sources) {
 		if (self >= 0 && source.index == self) continue;
 		v3f delta = source.position - p;
 		float distance = delta.getLength();
 		if (distance > 16.0f) continue;
-		if (distance < 0.01f) { sum += source.emission; continue; }
+		if (distance < 0.01f) {
+			const auto value = source.emission * attenuation(distance * distance, grid.soft_falloff);
+			sum += value;
+			if (grid.soft_falloff && (grid.bake_dynamic_direct || !source.dynamic)) baked += value;
+			continue;
+		}
 		const float cosine = normal.dotProduct(delta / distance);
 		if (cosine <= 0.0f) continue;
 		const auto path = trace(grid, p, delta / distance, distance, source.index);
 		if (path.face >= 0) continue;
-		float fade = std::max(0.0f, 1.0f - distance / 16.0f);
-		sum += source.emission * path.transmission *
-			(cosine * fade * fade / std::max(distance * distance, 1.0f));
+		const auto value = source.emission * path.transmission *
+			(cosine * attenuation(distance * distance, grid.soft_falloff));
+		sum += value;
+		if (grid.soft_falloff && (grid.bake_dynamic_direct || !source.dynamic)) baked += value;
 	}
 	return sum;
 }
@@ -97,16 +118,15 @@ std::array<v3f, 6> probeIrradiance(const Grid &grid, const std::vector<Source> &
 		const float squaredDistance = delta.getLengthSQ();
 		if (squaredDistance > 256.0f) continue;
 		if (squaredDistance < 0.0001f) {
-			for (auto &value : result) value += source.emission;
+			for (auto &value : result) value += source.emission * attenuation(squaredDistance, grid.soft_falloff);
 			continue;
 		}
 		const float distance = std::sqrt(squaredDistance);
 		const v3f direction = delta / distance;
 		const auto path = trace(grid, p, direction, distance, source.index);
 		if (path.face >= 0) continue;
-		const float fade = std::max(0.0f, 1.0f - distance / 16.0f);
 		const v3f incident = source.emission * path.transmission *
-			(fade * fade / std::max(squaredDistance, 1.0f));
+			attenuation(squaredDistance, grid.soft_falloff);
 		for (int d = 0; d < 6; ++d)
 			result[d] += incident * std::max(normals[d].dotProduct(direction), 0.0f);
 	}
@@ -203,19 +223,25 @@ Solution solve(Grid grid, unsigned int bounces, unsigned int max_sources,
 	}
 	std::vector<Surface> surfaces;
 	std::vector<v3f> radiance(count * 6);
+	// Finish air-center probes before applying adjacent surface corrections.
+	for (int i = 0; i < count; ++i)
+		if (!grid.cells[i].solid)
+			result.fields[i].direct = probeIrradiance(grid, sources, grid.position(i));
 	for (int i = 0; i < count; ++i) {
+		if (!grid.cells[i].solid) continue;
 		const v3f p = grid.position(i);
-		if (!grid.cells[i].solid) {
-			result.fields[i].direct = probeIrradiance(grid, sources, p);
-			continue;
-		}
 		for (int d = 0; d < 6; ++d) {
 			v3f neighbor = p + normals[d];
 			if (!grid.inside(neighbor.X, neighbor.Y, neighbor.Z)) continue;
 			const int adjacent = grid.index(neighbor.X, neighbor.Y, neighbor.Z);
 			if (grid.cells[adjacent].solid) continue;
 			const v3f origin = p + normals[d] * 0.501f;
-			v3f direct = irradiance(grid, sources, origin, normals[d], i);
+			v3f baked;
+			v3f direct = irradiance(grid, sources, origin, normals[d], i, baked);
+			// A low lamp can be below the probe center but above the floor.
+			// Reuse the actual face irradiance for its matching receiver lobe.
+			// Sunlight and GPU frame-direct lights are excluded from this term.
+			if (grid.soft_falloff) result.fields[adjacent].direct[d] = baked;
 			float cosine = std::max(normals[d].dotProduct(grid.sun_direction), 0.0f);
 			const auto sunlight = cosine > 0 ? trace(grid, origin, grid.sun_direction, grid.size * 2.0f) : Hit{};
 			if (cosine > 0 && sunlight.sky) {

@@ -722,8 +722,10 @@ public:
 			std::pow(2.0f, exposure_params.luminance_min),
 			std::pow(2.0f, exposure_params.luminance_max),
 			exposure_params.exposure_correction,
-			exposure_params.speed_dark_bright,
-			exposure_params.speed_bright_dark,
+			std::min(exposure_params.speed_dark_bright,
+				g_settings->getFloat("auto_exposure_speed_dark_bright", 0.05f, 1000.0f)),
+			std::min(exposure_params.speed_bright_dark,
+				g_settings->getFloat("auto_exposure_speed_bright_dark", 0.05f, 1000.0f)),
 			exposure_params.center_weight_power,
 			powf(2.f, m_user_exposure_compensation)
 		};

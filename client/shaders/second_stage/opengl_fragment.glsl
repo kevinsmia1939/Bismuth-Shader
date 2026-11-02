@@ -28,6 +28,7 @@ VARYING_ float exposure; // linear exposure factor, see vertex shader
 #endif
 
 #ifdef ENABLE_BLOOM
+uniform float bloomStrength;
 
 vec4 applyBloom(vec4 color, vec2 uv)
 {
@@ -38,7 +39,7 @@ vec4 applyBloom(vec4 color, vec2 uv)
 	if (uv.x < 0.5)
 		return color;
 #endif
-	color.rgb = mix(color.rgb, light, bloomIntensity);
+	color.rgb = mix(color.rgb, light * bloomStrength, bloomIntensity);
 	return color;
 }
 
@@ -131,7 +132,9 @@ void main(void)
 #endif
 
 
-	color.rgb = clamp(color.rgb, vec3(0.), vec3(1.));
+	// Preserve HDR separation for the tone curve. Clipping here flattened
+	// nearby lamp highlights and grain glints to the same white plateau.
+	color.rgb = max(color.rgb, vec3(0.));
 
 	// return to sRGB colorspace (approximate)
 	color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
@@ -157,8 +160,10 @@ void main(void)
 
 #ifdef ENABLE_DITHERING
 	// Apply dithering just before quantisation
-	color.rgb += screen_space_dither(gl_FragCoord.xy);
+	// Quantization noise must not turn exact black (or a zero color channel)
+	// into a faint visible floor after a lamp is removed.
+	color.rgb += screen_space_dither(gl_FragCoord.xy) * clamp(color.rgb * 255.0, vec3(0.0), vec3(1.0));
 #endif
 
-	gl_FragColor = vec4(color.rgb, 1.0); // force full alpha to avoid holes in the image.
+	gl_FragColor = vec4(clamp(color.rgb, vec3(0.0), vec3(1.0)), 1.0); // full scene coverage
 }

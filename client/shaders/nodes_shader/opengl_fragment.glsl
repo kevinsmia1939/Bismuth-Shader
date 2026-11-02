@@ -16,7 +16,7 @@ uniform sampler2D texture2;
 #endif
 
 uniform vec3 dayLight;
-#if defined(ENABLE_MATERIAL_SHADING) || defined(ENABLE_WATER_REFLECTIONS)
+#if defined(ENABLE_MATERIAL_SHADING) || defined(ENABLE_WATER_REFLECTIONS) || defined(ENABLE_TRANSLUCENT_FOLIAGE) || defined(ENABLE_MATERIAL_SPARKLE)
 uniform vec4 surfaceLight; // World direction toward the source, illumination strength.
 uniform vec3 surfaceLightColor; // Linear native daylight color.
 #endif
@@ -545,6 +545,9 @@ void main(void)
 #endif
 
 	// Derivatives need neighboring lanes, including those outside a cutout.
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+	surfaceGrain = sampleSurfaceGrain(worldPosition / 10.0 + mod(cameraOffset / 10.0, vec3(1024.0)), fNormal, base.rgb);
+#endif
 #ifdef USE_DISCARD
 	if (cutoutAlpha == 0.0)
 		discard;
@@ -557,6 +560,10 @@ void main(void)
 #ifdef ENABLE_DYNAMIC_SHADOWS
 
 	if (f_shadow_strength > 0.0) {
+		bool thinFoliage = false;
+#if defined(ENABLE_TRANSLUCENT_FOLIAGE) && defined(MATERIAL_FOLIAGE)
+		thinFoliage = true;
+#endif
 		float shadow_int = 0.0;
 		vec3 shadow_color = vec3(0.0, 0.0, 0.0);
 		vec3 posLightSpace = getLightSpacePosition();
@@ -570,14 +577,14 @@ void main(void)
 
 #ifdef COLORED_SHADOWS
 			vec4 visibility;
-			if (cosLight > 0.0 || f_normal_length < 1e-3)
+			if (cosLight > 0.0 || f_normal_length < 1e-3 || thinFoliage)
 				visibility = getShadowColor(ShadowMapSampler, posLightSpace.xy, posLightSpace.z);
 			else
 				visibility = vec4(1.0, 0.0, 0.0, 0.0);
 			shadow_int = visibility.r;
 			shadow_color = visibility.gba;
 #else
-			if (cosLight > 0.0 || f_normal_length < 1e-3)
+			if (cosLight > 0.0 || f_normal_length < 1e-3 || thinFoliage)
 				shadow_int = getShadow(ShadowMapSampler, posLightSpace.xy, posLightSpace.z);
 			else
 				shadow_int = 1.0;
@@ -639,12 +646,6 @@ void main(void)
 		}
 #endif
 
-#if (MATERIAL_TYPE == TILE_MATERIAL_WAVING_PLANTS || MATERIAL_TYPE == TILE_MATERIAL_WAVING_LEAVES) && defined(ENABLE_TRANSLUCENT_FOLIAGE)
-		// Simulate translucent foliage.
-		vec3 foliageLight = 4.0 * dayLight * base.rgb * normalize(base.rgb * varColor.rgb * varColor.rgb) * f_adj_shadow_strength * pow(max(-dot(v_LightDirection, viewVec), 0.0), 4.0) * max(1.0 - shadow_uncorrected, 0.0);
-		col.rgb += foliageLight;
-		cloudExplicitSun += foliageLight;
-#endif
 	}
 #endif
 
@@ -671,6 +672,22 @@ void main(void)
 			surfaceLightColor * (surfaceLight.w * naturalShare) * surfaceSunVisibility;
 #endif
 	}
+#endif
+
+#if defined(ENABLE_TRANSLUCENT_FOLIAGE) && defined(MATERIAL_FOLIAGE)
+	vec3 foliageView = cameraPosition - cameraOffset - worldPosition;
+	float foliageViewLength = length(foliageView);
+	if (foliageViewLength > 0.000001 && surfaceLight.w > 0.0)
+		materialSun += foliageTransmission(base.rgb, fNormal, foliageView / foliageViewLength, surfaceLight.xyz) *
+			surfaceLightColor * (surfaceLight.w * nativeSky) * waterSunVisibility;
+#endif
+
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+	vec3 grainView = cameraPosition - cameraOffset - worldPosition;
+	float grainViewLength = length(grainView);
+	if (grainViewLength > 0.000001 && surfaceLight.w > 0.0)
+		materialSun += grainResponse(fNormal, grainView / grainViewLength, surfaceLight.xyz) *
+			surfaceLightColor * (surfaceLight.w * nativeSky) * surfaceSunVisibility;
 #endif
 
 #if defined(ENABLE_WATER_REFLECTIONS) && MATERIAL_WATER_REFLECTIONS && ENABLE_WAVING_WATER

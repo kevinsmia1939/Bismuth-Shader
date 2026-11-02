@@ -896,6 +896,10 @@ voxel_gi_bounces (Voxel GI Bounces) int 2 1 4
 #    Requires: enable_voxel_lighting
 voxel_light_strength (Colored Light Strength) float 1.0 0.0 4.0
 
+#    Broader near-source illumination and a smooth finite range for local lights.
+#    Disable for the previous attenuation and air-center probe sampling. Restart required.
+voxel_light_soft_falloff (Smooth local light falloff) bool true
+
 #    Reflected light intensity, including bounced sunlight and colored emissive light.
 #
 #    Requires: enable_voxel_lighting
@@ -1175,6 +1179,10 @@ enable_material_shading (Material Surface Detail) bool false
 #    Requires: enable_material_shading
 material_roughness (Material Roughness) float 0.8 0.2 1.0
 
+#    Subtle light-dependent grain highlights on sand and snow. Restart required.
+#    Requires: enable_material_shading
+enable_material_sparkle (Sand and snow sparkle) bool false
+
 #    Strength of texture-derived surface normals. Zero disables bump detail.
 #
 #    Requires: enable_material_shading
@@ -1246,6 +1254,14 @@ tone_mapping (Filmic tone mapping) bool false
 #    Requires: enable_post_processing
 enable_auto_exposure (Enable Automatic Exposure) bool false
 
+#    Maximum adaptation rate when entering a brighter scene, in inverse seconds.
+#    Slower rates authored by the game are preserved.
+auto_exposure_speed_dark_bright (Exposure adaptation to bright scenes) float 3.0 0.05 1000.0
+
+#    Maximum adaptation rate when entering a darker scene, in inverse seconds.
+#    Slower rates authored by the game are preserved. This never adds light to black pixels.
+auto_exposure_speed_bright_dark (Exposure adaptation to dark scenes) float 1.0 0.05 1000.0
+
 #    Set the exposure compensation in EV units.
 #    Value of 0.0 (default) means no exposure compensation.
 #
@@ -1276,10 +1292,9 @@ enable_volumetric_lighting (Volumetric Lighting) bool false
 
 [**Other Effects]
 
-#   Simulate translucency when looking at foliage in the sunlight.
-#   It is recommended to use this with setting "leaves_style" set to "fancy".
-#
-#   Requires: enable_dynamic_shadows
+#   Thin-surface sunlight transmission through grass and leaves.
+#   Works with static or waving foliage and each leaf draw style.
+#   Shadow maps provide visibility when enabled. Restart required.
 enable_translucent_foliage (Translucent foliage) bool false
 
 #   Simulate liquid reflections and directional sun/moon glints.

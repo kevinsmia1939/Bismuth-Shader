@@ -44,6 +44,7 @@ struct Grid {
 	std::vector<Cell> cells;
 	std::vector<DynamicSource> dynamic_sources;
 	bool bake_dynamic_direct = true;
+	bool soft_falloff = true;
 	v3f sun_direction;
 	v3f sun_irradiance;
 };

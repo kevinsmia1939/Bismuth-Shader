@@ -262,3 +262,7 @@ exact launch settings separately from settings saved on shutdown.
 These tests do not capture images or send input-device events. Numeric patterns
 and native scalar probes cover defined behavior; they cannot certify every
 asset, every visible pixel or parity with a particular Minecraft shader pack.
+
+Milestone 6 adds [foliage transmission and sand/snow grain highlights](surface-materials.md)
+without requiring material maps. Its [combined results](graphics-milestone-6-results/README.md)
+cover darkness, temporal feedback, native terrain and matched effect costs.

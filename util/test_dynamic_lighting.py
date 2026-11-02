@@ -63,7 +63,7 @@ def setup(gpu):
     gpu.uniform('testNode',0)
     gpu.uniform('testCompose',0)
 
-def falloff(distance): return (1-distance/16)**2/max(distance*distance,1)
+def falloff(distance): return max(0,1-(distance/16)**4)**2/(distance*distance+4)
 
 def movement():
     with ShaderTest(FLAGS+HELPER+MAIN) as gpu:
@@ -86,7 +86,7 @@ def movement():
         sources(gpu,[((2,4,4),(2,0,0))]);gpu.uniform('testNormal',0,0,0)
         close(gpu.draw(),(2*falloff(6)/6,0,0,1),'sprite isotropic convention')
         sources(gpu,[((8,4,4),(2,0,0))])
-        close(gpu.draw(),(2,0,0,1),'coincident point remains finite')
+        close(gpu.draw(),(0.5,0,0,1),'coincident point remains finite without a hotspot')
         print('PASS: per-frame positions/colors/count with unchanged atlas, bounded light array;',gpu.renderer)
 
 def visibility():

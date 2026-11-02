@@ -366,7 +366,7 @@ if __name__=='__main__':
     measure.add_argument('--duration',type=float,default=20);measure.add_argument('--timeout',type=float,default=1200)
     measure.add_argument('--label',default='',help='optional output prefix for pilot or tuning runs')
     measure.add_argument('--resume',action='store_true',help='revalidate completed runs and preserve/retry incomplete runs')
-    measure.add_argument('--scenes',nargs='+',choices=('forest','sunset_river','glowing_cave','underwater'),help='isolate scenes for tuning; omit for final comparison')
+    measure.add_argument('--scenes',nargs='+',choices=('forest','sunset_river','glowing_cave','underwater','surface_materials'),help='isolate scenes for tuning; surface_materials requires the milestone 6 prepared fixture; omit for final comparison')
     measure.add_argument('--set',action='append',default=[],help='key=value override for isolated tuning runs')
     summary=commands.add_parser('report');summary.add_argument('--output',type=Path,required=True)
     summary.add_argument('--label',default='baseline');summary.add_argument('--destination',type=Path,required=True)

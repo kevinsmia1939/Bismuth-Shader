@@ -41,6 +41,68 @@ TEST_CASE("Voxel lighting transports colored emission and respects opaque walls"
 	CHECK(energy(blocked.indirect) == 0.0f);
 }
 
+TEST_CASE("Map and fallback lamps share a bounded smooth ground-light gradient", "[client][render][voxel][falloff]")
+{
+	// Inspect actual solved probes, rather than a second copy of the attenuation
+	// formula. Both map and moving-source fallback must retain the same curve.
+	auto grid = room(23);
+	grid.cells[grid.index(3, 5, 4)].emission = v3f(2, 1, 0.5f);
+	const auto map = voxel_light::solve(grid, 1);
+	grid.cells[grid.index(3, 5, 4)].emission = v3f();
+	grid.dynamic_sources.push_back({v3f(3, 5, 4), v3f(2, 1, 0.5f)});
+	const auto moving = voxel_light::solve(grid, 1);
+	float previous = 1.0f;
+	for (int x = 3; x <= 20; ++x) {
+		const auto lamp = map.fields[grid.index(x, 4, 4)].direct[2];
+		CHECK(lamp == moving.fields[grid.index(x, 4, 4)].direct[2]);
+		CHECK(lamp.X <= previous);
+		CHECK(lamp.Y == Catch::Approx(lamp.X / 2));
+		CHECK(lamp.Z == Catch::Approx(lamp.X / 4));
+		previous = lamp.X;
+	}
+	const float near = map.fields[grid.index(3, 4, 4)].direct[2].X;
+	const float far = map.fields[grid.index(5, 4, 4)].direct[2].X;
+	CHECK(near < 0.5f);
+	CHECK(near / far < 6.0f);
+	CHECK(map.fields[grid.index(20, 4, 4)].direct[2] == v3f());
+	grid.soft_falloff = false;
+	const auto legacy = voxel_light::solve(grid, 1);
+	CHECK(legacy.fields[grid.index(3, 4, 4)].direct[2].X > near * 4.0f);
+	CHECK(legacy.fields[grid.index(3, 4, 4)].direct[2].X /
+		legacy.fields[grid.index(5, 4, 4)].direct[2].X > near / far);
+}
+
+TEST_CASE("Low lamps illuminate their receiving floor instead of an elevated probe plane", "[client][render][voxel][falloff]")
+{
+	auto grid = room(23);
+	for (int z = 1; z < 22; ++z) for (int x = 1; x < 22; ++x)
+		grid.cells[grid.index(x, 3, z)].solid = true;
+	grid.cells[grid.index(3, 4, 4)].emission = v3f(2, 1, 0.5f);
+	const auto placed = voxel_light::solve(grid, 1);
+	const auto first = placed.fields[grid.index(4, 4, 4)].direct[2];
+	const auto next = placed.fields[grid.index(5, 4, 4)].direct[2];
+	REQUIRE(first.X > 0.05f);
+	CHECK(first.X > next.X);
+	CHECK(first.X / next.X < 4.0f);
+	CHECK(first.Y == Catch::Approx(first.X / 2));
+	CHECK(first.Z == Catch::Approx(first.X / 4));
+	grid.soft_falloff = false;
+	const auto old_probe = voxel_light::solve(grid, 1);
+	CHECK(old_probe.fields[grid.index(4, 4, 4)].direct[2] == v3f());
+	grid.soft_falloff = true;
+	grid.cells[grid.index(3, 4, 4)].emission = v3f();
+	grid.dynamic_sources.push_back({v3f(3,4,4),v3f(2,1,0.5f)});
+	const auto fallback = voxel_light::solve(grid, 1);
+	CHECK(fallback.fields[grid.index(4, 4, 4)].direct[2] == first);
+	grid.bake_dynamic_direct = false;
+	const auto frame_direct = voxel_light::solve(grid, 1);
+	CHECK(frame_direct.fields[grid.index(4, 4, 4)].direct[2] == v3f());
+	CHECK(energy(frame_direct.fields[grid.index(4, 4, 4)].indirect) > 0);
+	grid.dynamic_sources.clear();
+	const auto removed = voxel_light::solve(grid, 1);
+	CHECK(removed.fields[grid.index(4, 4, 4)].direct[2] == v3f());
+}
+
 TEST_CASE("Voxel radiosity inherits material color and supports multiple bounces", "[client][render][voxel]")
 {
 	auto grid = room();
@@ -171,7 +233,7 @@ TEST_CASE("Moving colored voxel sources retain fractional positions and bounce",
 	CHECK(first.dynamic_emission_sum == v3f(2, 0.5f, 0));
 	CHECK(first.dynamic_position_sum == v3f(3.25f, 4, 4));
 	const float distance = 1.75f;
-	const float expected = 2 * std::pow(1 - distance / 16, 2) / (distance * distance);
+	const float expected = 2 * std::pow(1 - std::pow(distance / 16, 4), 2) / (distance * distance + 4);
 	CHECK(first.fields[receiver].direct[1].X == Catch::Approx(expected));
 	CHECK(first.fields[receiver].direct[1].Y == Catch::Approx(expected * 0.25f));
 	CHECK(first.fields[receiver].direct[1].Z == 0);

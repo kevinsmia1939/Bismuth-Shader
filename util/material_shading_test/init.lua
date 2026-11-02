@@ -15,6 +15,16 @@ core.register_node("material_shading_test:cutout", {
 register("auto","material_test_auto.png")
 register("animated",{name="material_test_animated.png",normal_texture="material_test_animated_normal.png",
  material_texture="material_test_animated_orm.png",animation={type="vertical_frames",aspect_w=16,aspect_h=16,length=1}})
+if core.settings:get_bool("material_test_surface_materials",false) then
+ core.register_node("material_shading_test:grass",{drawtype="plantlike",waving=1,
+  paramtype="light",sunlight_propagates=true,walkable=false,use_texture_alpha="clip",
+  tiles={"material_test_cutout.png"},groups={grass=1}})
+ core.register_node("material_shading_test:leaves",{drawtype="allfaces_optional",waving=1,
+  paramtype="light",sunlight_propagates=true,use_texture_alpha="clip",
+  tiles={"material_test_cutout.png"},groups={leaves=1}})
+ core.register_node("material_shading_test:sand",{tiles={"[fill:16x16:#e9d6a8"},groups={sand=1}})
+ core.register_node("material_shading_test:snow",{tiles={"[fill:16x16:#eeeeee"},groups={snowy=1}})
+end
 core.register_on_joinplayer(function(player)
  core.emerge_area({x=-16,y=-8,z=-16},{x=16,y=16,z=16},function(_,_,remaining)
   if remaining~=0 then return end
@@ -31,6 +41,12 @@ core.register_on_joinplayer(function(player)
    end
    core.set_node({x=0,y=1,z=1},{name="material_shading_test:emissive"})
    core.set_node({x=2,y=2,z=1},{name="material_shading_test:cutout"})
+   if core.settings:get_bool("material_test_surface_materials",false) then
+    for i,name in ipairs({"grass","leaves","sand","snow"}) do
+     core.set_node({x=(i-1)*2-3,y=1,z=0},{name="material_shading_test:"..name})
+    end
+    core.log("action","Material integration: foliage and sand/snow compatibility nodes placed")
+   end
    core.log("action","Material integration: cutout normal/ORM node placed")
    player:set_pos({x=0,y=2,z=-5});player:set_look_horizontal(0);player:set_look_vertical(0.1)
    player:set_physics_override({gravity=0,speed=0});core.set_timeofday(0.32)

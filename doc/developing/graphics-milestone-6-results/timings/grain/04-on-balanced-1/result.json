@@ -1,0 +1,46 @@
+{
+  "profile": "balanced",
+  "repeat": 1,
+  "config_sha256": "f65b154849c9cf0d004bb6ad0acc11d260b4c7a39fa1536f831b850329c46e71",
+  "launch_config_sha256": "a24998b191a4477eacd24325a4770e6669b610a149f01d5f669a051c821706e0",
+  "profile_sha256": "168845e59fb4b6cced279a85fcb2d45156f6cb7391375ef0b6db65b154ee7f48",
+  "scene_manifest_sha256": "c83d26262446ee104cf5a55ac93b9d2fe309148471b0b61f4a1322be448bea5a",
+  "fixture_sha256": "e2391dcf52f5509beb60fa8defba70434b468ce4dacf06d35bf8a3fb25637458",
+  "game": "minetest",
+  "game_adapter_sha256": "5e19d1ee0f49869ab7f143cf99f632e3962e01a4618e1c9407838d3a836a40ca",
+  "overrides": [
+    "texture_path=/home/kevin/Dropbox/Desktop/software/luanti/textures/bismuth-minetest-game"
+  ],
+  "scenes": [
+    "surface_materials"
+  ],
+  "binary_sha256": "6de3fe32dec98c23ac61fc1b031564bb76596e4bd31ba2dc456b9d544045ed35",
+  "shader_sha256": "7e189581cebc926451a96fa5bf5157020a4b0e6f8faef213ecc98db462e8b982",
+  "results": [
+    {
+      "scene": "surface_materials",
+      "frames": 676,
+      "seconds": 11.988373017879999,
+      "fps": 56.38796849178643,
+      "median_ms": 17.260500229999998,
+      "p95_ms": 20.904000385,
+      "p99_ms": 23.3997497725,
+      "mean_draw_cpu_ms": 17.220579881656803,
+      "mean_drawcalls": 103.31213017751479,
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "gpu_before": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 69, 1875 MHz, 6000 MHz, 22.79 W",
+  "gpu_after": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 71, 1860 MHz, 6000 MHz, 24.41 W",
+  "driver_environment": {
+    "DISPLAY": ":0",
+    "WAYLAND_DISPLAY": "wayland-1",
+    "SDL_VIDEODRIVER": "wayland",
+    "LIBGL_ALWAYS_SOFTWARE": null,
+    "__NV_PRIME_RENDER_OFFLOAD": null,
+    "__GL_SYNC_TO_VBLANK": null,
+    "__GL_SHADER_DISK_CACHE": "1",
+    "__GL_SHADER_DISK_CACHE_PATH": "/home/kevin/Dropbox/Desktop/software/luanti/cache/bismuth-gl"
+  }
+}

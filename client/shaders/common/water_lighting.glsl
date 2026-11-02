@@ -24,8 +24,7 @@ vec3 voxelWaterMovingLight(vec3 position, vec3 q, vec3 viewRay)
 		if (path.z < distance*10.0-0.02) continue;
 		visibility *= waterTransmission(path.y,waterMediumParams.y);
 		float phase = mix(1.0,voxelVolumePhase(dot(direction,viewRay),voxelWaterParams.y),smoothstep(0.0,1.0,distance));
-		float fade = max(0.0,1.0-distance/16.0);
-		result += emission*visibility*(phase*fade*fade/(6.0*max(squaredDistance,1.0)));
+		result += emission*visibility*(phase*voxelLightAttenuation(squaredDistance)/6.0);
 	}
 	return result;
 }

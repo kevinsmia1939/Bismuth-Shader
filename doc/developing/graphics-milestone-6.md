@@ -1,13 +1,31 @@
 # Semi-realistic graphics: milestone 6
 
-Status: planned. The new appearance requirements and the combined-image audit
-are pending. Keep the semi-realistic style, readable pixel textures and existing
-texture-pack compatibility. Minetest Game is the primary integration target.
+Status: implementation and correctness validation complete. Smooth falloff,
+foliage transmission, sand/snow grain shading and image-stability fixes pass
+45 numeric suite/driver checks, the C++ suite, the 18-stage native audit and
+three compatibility runs. Matched frame-time measurements are recorded in the
+[results report](graphics-milestone-6-results/README.md). Keep the semi-realistic
+style, readable pixel textures and existing texture-pack compatibility. Minetest Game is the
+primary integration target.
 
 Complete stages 6A–6C before the final stability audit, so the new shading is
 included in that audit. The earlier milestone 4 lighting and milestone 5 material
 reports describe their original verification checkpoints. They do not establish
 completion of these additions.
+
+## Completion checkpoint
+
+| Stage | Result | Verification |
+| --- | --- | --- |
+| 6A | Soft attenuation and receiving-face correction for low lamps | Worker solves, dense floor strips, full node/exposure/tone composition and native lamp removal |
+| 6B | Two-sided, colored foliage transmission with smooth grazing response | Full node cutouts/shadows, static/waving classification and native foliage replay |
+| 6C | Separate filtered sand/snow grain responses | World anchoring, distance/view sweeps, daylight/local lamps, dark controls and temporal feedback |
+| 6D | Chroma-reactive TAA, HDR preservation, black-preserving bloom and independent exposure meter | GPU feedback, 18 native stages, resize, stereo/MSAA and renderer fallbacks |
+
+Balanced/quality presets enable the additions. For comparisons, restart after
+setting `voxel_light_soft_falloff = false`, `enable_translucent_foliage = false`
+or `enable_material_sparkle = false`. The basic preset provides the native
+renderer fallback. These controls do not alter game node definitions or textures.
 
 ## 6A. Smooth torch and glowing-block light falloff
 
@@ -97,6 +115,46 @@ darkness without abruptly changing exposure; lamps must retain useful local
 contrast. Water entry/exit must not flash or reuse stale reflection history.
 
 ## Validation and performance boundaries
+
+Implementation notes: [smooth local light](local-light-falloff.md) and
+[foliage/grain material response](surface-materials.md).
+
+The combined pipeline now preserves HDR highlight separation until tone mapping.
+Bloom reduction/reconstruction and output dithering preserve exact black; the
+reduction kernel's four inner taps are symmetric. TAA compares chroma as well as
+brightness, rejecting stale color from animated textures even when geometry and
+brightness remain unchanged.
+Exposure meters a linear input independently of bloom gain. Zero bloom gain and
+disabled bloom retain metering data instead of introducing a zero denominator
+or measuring an unexposed gamma-encoded image.
+Client adaptation-rate limits (`auto_exposure_speed_dark_bright`, default 3/s;
+`auto_exposure_speed_bright_dark`, default 1/s) prevent the game's fast default
+rates from forcing immediate exposure changes. Slower authored rates remain in
+effect. Games retain control of their metering range, including fixed exposure.
+The adaptive native fixture explicitly authors a range to exercise these limits.
+
+`benchmark_final_scene_log` adds optional scalar probes after TAA, exposure,
+bloom and tone mapping. Its diagnostic output target, reduction/readback and
+copy pass exist only when the option is set. No images are saved. The ordinary
+`benchmark_scene_log` remains before those camera passes, allowing both stages
+to be audited against the same runtime intervals.
+
+The expanded native replay is invoked with:
+
+```sh
+python3 util/test_graphics_milestones.py /path/to/prepared-world \
+  --output /tmp/graphics-milestone-6 \
+  --texture-pack textures/bismuth-minetest-game \
+  --daylight-cave --surface-materials --resize
+```
+
+The resize option builds a small SDL2/Linux test hook in the output directory
+and loads it only into the disposable client. It calls SDL's window-size API on
+that client's render thread, including under Wayland. It sends no keyboard,
+pointer or focus events. Client acknowledgments and frame logs must show
+all three requested sizes, including recovery to the original size. The surface
+fixture also preserves a stopped `surface-prepared-world` for matched profiling;
+`benchmark_graphics.py run --scenes surface_materials` selects that added scene.
 
 Use fixed settings and repeatable fixtures. Preserve numeric GPU tests and
 scripted runtime evidence, with screenshots and input-device automation excluded.

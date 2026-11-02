@@ -1,0 +1,289 @@
+[
+  {
+    "case": "falloff",
+    "scene": "glowing_cave",
+    "on": {
+      "frames": 936,
+      "seconds": 23.98380898498,
+      "fps": 39.02632816105963,
+      "mean_ms": 25.62372754805556,
+      "mean_ms_repeats": [
+        25.73195919633047,
+        25.516417020191486
+      ],
+      "p95_ms_range": [
+        29.000500127000002,
+        29.243500435
+      ],
+      "records": [
+        "falloff/01-on-balanced-1/result.json",
+        "falloff/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 928,
+      "seconds": 23.984818035860002,
+      "fps": 38.6911419804201,
+      "mean_ms": 25.84570909036638,
+      "mean_ms_repeats": [
+        25.24772846789474,
+        26.47273071437086
+      ],
+      "p95_ms_range": [
+        28.811700086,
+        29.926199464
+      ],
+      "records": [
+        "falloff/02-off-balanced-1/result.json",
+        "falloff/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": -0.22198154231082157
+  },
+  {
+    "case": "foliage",
+    "scene": "forest",
+    "on": {
+      "frames": 1141,
+      "seconds": 23.96967299089,
+      "fps": 47.60181753141366,
+      "mean_ms": 21.007601219009644,
+      "mean_ms_repeats": [
+        21.941556789725276,
+        20.15055963647059
+      ],
+      "p95_ms_range": [
+        23.564799872,
+        25.7877507275
+      ],
+      "records": [
+        "foliage/01-on-balanced-1/result.json",
+        "foliage/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 1201,
+      "seconds": 23.985171988639998,
+      "fps": 50.072603213719916,
+      "mean_ms": 19.97100082318068,
+      "mean_ms_repeats": [
+        20.013636040317195,
+        19.928578073903655
+      ],
+      "p95_ms_range": [
+        23.314600068,
+        23.539799172499993
+      ],
+      "records": [
+        "foliage/02-off-balanced-1/result.json",
+        "foliage/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 1.0366003958289625
+  },
+  {
+    "case": "grain",
+    "scene": "surface_materials",
+    "on": {
+      "frames": 1689,
+      "seconds": 23.976671018622998,
+      "fps": 70.44347393715046,
+      "mean_ms": 14.195779170291887,
+      "mean_ms_repeats": [
+        11.83445014880849,
+        17.73427961224852
+      ],
+      "p95_ms_range": [
+        14.704200066,
+        20.904000385
+      ],
+      "records": [
+        "grain/01-on-balanced-1/result.json",
+        "grain/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 2115,
+      "seconds": 23.983634993349,
+      "fps": 88.18513126081677,
+      "mean_ms": 11.33978013869929,
+      "mean_ms_repeats": [
+        11.120846150649676,
+        11.567801155210425
+      ],
+      "p95_ms_range": [
+        14.116699897999997,
+        14.12875042
+      ],
+      "records": [
+        "grain/02-off-balanced-1/result.json",
+        "grain/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 2.8559990315925976
+  },
+  {
+    "case": "camera",
+    "scene": "forest",
+    "on": {
+      "frames": 1048,
+      "seconds": 23.97829499099,
+      "fps": 43.70619347179575,
+      "mean_ms": 22.880052472318702,
+      "mean_ms_repeats": [
+        23.77508728886905,
+        22.050829039338236
+      ],
+      "p95_ms_range": [
+        25.160100033,
+        27.352950167
+      ],
+      "records": [
+        "camera/01-on-balanced-1/result.json",
+        "camera/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 1071,
+      "seconds": 23.959766980250002,
+      "fps": 44.69993388845658,
+      "mean_ms": 22.371397740662935,
+      "mean_ms_repeats": [
+        22.581664775329568,
+        22.164635156574075
+      ],
+      "p95_ms_range": [
+        25.0983492465,
+        26.457499715
+      ],
+      "records": [
+        "camera/02-off-balanced-1/result.json",
+        "camera/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 0.508654731655767
+  },
+  {
+    "case": "camera",
+    "scene": "sunset_river",
+    "on": {
+      "frames": 909,
+      "seconds": 23.977090008639998,
+      "fps": 37.91118937587703,
+      "mean_ms": 26.377436753179314,
+      "mean_ms_repeats": [
+        26.290614051864036,
+        26.46483443927152
+      ],
+      "p95_ms_range": [
+        29.674200344,
+        30.0407502775
+      ],
+      "records": [
+        "camera/01-on-balanced-1/result.json",
+        "camera/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 1003,
+      "seconds": 23.95351302422,
+      "fps": 41.872772439927346,
+      "mean_ms": 23.88186742195414,
+      "mean_ms_repeats": [
+        24.33489639719512,
+        23.445682968297454
+      ],
+      "p95_ms_range": [
+        26.921500455,
+        28.311900234499998
+      ],
+      "records": [
+        "camera/02-off-balanced-1/result.json",
+        "camera/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 2.495569331225173
+  },
+  {
+    "case": "camera",
+    "scene": "glowing_cave",
+    "on": {
+      "frames": 845,
+      "seconds": 23.90959301212,
+      "fps": 35.3414631345528,
+      "mean_ms": 28.295376345704142,
+      "mean_ms_repeats": [
+        28.86815461359903,
+        27.745190260069606
+      ],
+      "p95_ms_range": [
+        31.928999349999998,
+        32.40905013249999
+      ],
+      "records": [
+        "camera/01-on-balanced-1/result.json",
+        "camera/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 921,
+      "seconds": 23.975628012690002,
+      "fps": 38.41400940624062,
+      "mean_ms": 26.032169394885997,
+      "mean_ms_repeats": [
+        26.092209177516338,
+        25.97251948097403
+      ],
+      "p95_ms_range": [
+        28.981899754,
+        29.316800645999997
+      ],
+      "records": [
+        "camera/02-off-balanced-1/result.json",
+        "camera/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 2.2632069508181445
+  },
+  {
+    "case": "camera",
+    "scene": "underwater",
+    "on": {
+      "frames": 987,
+      "seconds": 23.983369987459998,
+      "fps": 41.153515978616234,
+      "mean_ms": 24.299260372299898,
+      "mean_ms_repeats": [
+        24.531562368854804,
+        24.071156604598393
+      ],
+      "p95_ms_range": [
+        27.205650229499998,
+        27.878599614
+      ],
+      "records": [
+        "camera/01-on-balanced-1/result.json",
+        "camera/04-on-balanced-1/result.json"
+      ]
+    },
+    "off": {
+      "frames": 1143,
+      "seconds": 23.95870398153,
+      "fps": 47.70708803285645,
+      "mean_ms": 20.961245828110236,
+      "mean_ms_repeats": [
+        21.772541786345453,
+        20.208779087757165
+      ],
+      "p95_ms_range": [
+        22.878599538,
+        25.2880501595
+      ],
+      "records": [
+        "camera/02-off-balanced-1/result.json",
+        "camera/03-off-balanced-1/result.json"
+      ]
+    },
+    "enabled_minus_control_ms": 3.3380145441896616
+  }
+]

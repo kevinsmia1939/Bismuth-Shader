@@ -12,6 +12,24 @@
 uniform sampler2D voxelAtlas;
 uniform vec3 voxelOrigin;
 uniform vec4 voxelParams; // ready, direct strength, bounce strength, grid size
+#ifndef VOXEL_LIGHT_SOFT_FALLOFF
+#define VOXEL_LIGHT_SOFT_FALLOFF 1
+#endif
+
+float voxelLightAttenuation(float squaredDistance)
+{
+#if VOXEL_LIGHT_SOFT_FALLOFF
+	// A two-node soft core avoids a clipped hotspot beside small emitters.
+	// The quartic window preserves the middle range and reaches zero with a
+	// zero derivative at 16 nodes, instead of fading sharply from the source.
+	float range = squaredDistance / 256.0;
+	float window = max(0.0, 1.0 - range * range);
+	return window * window / (squaredDistance + 4.0);
+#else
+	float fade = max(0.0, 1.0 - sqrt(squaredDistance) / 16.0);
+	return fade * fade / max(squaredDistance, 1.0);
+#endif
+}
 #ifdef ENABLE_VOXEL_DYNAMIC_DIRECT
 #define VOXEL_ATLAS_COLUMNS 14.0
 #if defined(ENABLE_VOXEL_MATERIAL_SPECULAR) && !MATERIAL_WATER_REFLECTIONS && (MATERIAL_TYPE != TILE_MATERIAL_WAVING_LEAVES && MATERIAL_TYPE != TILE_MATERIAL_WAVING_PLANTS)
@@ -119,12 +137,15 @@ vec3 voxelDynamicIrradiance(vec3 q, vec3 normal, vec3 geometric, bool nodeSurfac
 			dot(geometric, direction) <= 0.0) continue;
 #endif
 		vec3 transmission = voxelDynamicTransmission(q + geometric * 0.001, source, ignored);
-		float fade = max(0.0, 1.0 - distance / 16.0);
-		vec3 incident = emission * transmission * (fade * fade / max(squaredDistance, 1.0));
+		vec3 incident = emission * transmission * voxelLightAttenuation(squaredDistance);
 		result += incident * cosine;
 #ifdef VOXEL_POINT_GGX
 		if (specularEnabled && normalLength > 0.001 && viewLength > 0.000001)
 			specular += incident * materialSpecular(unitNormal, unitView, direction, roughness, f0);
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+		if (specularEnabled && normalLength > 0.001 && viewLength > 0.000001)
+			specular += incident * grainResponse(unitNormal, unitView, direction);
+#endif
 #endif
 	}
 	return result;
@@ -159,6 +180,36 @@ vec3 voxelIrradiance(vec3 p, vec3 normal, float baseGroup)
 	}
 	return result;
 }
+
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+vec3 voxelStaticGrainIrradiance(vec3 probe, vec3 normal, vec3 geometric, vec3 view, vec3 faceIrradiance)
+{
+	// Recover the dominant incident direction from the six existing direct
+	// lobes. A single placed light reconstructs its direction and spectrum;
+	// multiple lights share an approximate first moment, without new sources
+	// or an extra atlas. Moving lights are excluded from this field when their
+	// exact per-frame path is active, so neither path counts them twice.
+	vec3 moment = vec3(0.0);
+	for (int axis = 0; axis < 3; ++axis) {
+		vec4 positive = voxelProbe(probe, float(axis * 2));
+		vec4 negative = voxelProbe(probe, float(axis * 2 + 1));
+		vec3 a = positive.rgb / max(positive.a, 0.05);
+		vec3 b = negative.rgb / max(negative.a, 0.05);
+		// Surface-anchored lobes and air-center lobes can disagree very close
+		// to a lamp. Light behind the receiver must not reverse its front lobe.
+		a *= geometric[axis] < 0.0 ? 0.0 : 1.0;
+		b *= geometric[axis] > 0.0 ? 0.0 : 1.0;
+		moment[axis] = dot(a - b, vec3(0.2126, 0.7152, 0.0722));
+	}
+	float lengthSquared = dot(moment, moment);
+	if (lengthSquared < 0.0000000001) return vec3(0.0);
+	vec3 direction = moment / sqrt(lengthSquared);
+	// Normalize by receiving irradiance instead of an isotropic probe's six-lobe
+	// sum. This bounds glints beside low lamps and retains volume-edge coverage.
+	vec3 incident = faceIrradiance / max(dot(normal, direction), 0.1);
+	return incident * grainResponse(normal, normalize(view), direction);
+}
+#endif
 
 #if defined(ENABLE_VOXEL_FOG_LIGHTING) || defined(ENABLE_VOXEL_WATER_LIGHTING)
 float voxelVolumePhase(float cosine, float anisotropy)
@@ -236,10 +287,9 @@ vec3 voxelFogMovingLight(vec3 q, vec3 viewRay)
 		// the eye against viewRay: their scattering cosine is direction.viewRay.
 		float phase = mix(1.0, voxelFogPhase(dot(direction, viewRay)), smoothstep(0.0, 1.0, distance));
 		vec3 transmission = voxelDynamicTransmission(q, source, vec3(-2.0));
-		float fade = max(0.0, 1.0 - distance / 16.0);
 		// Keep the previous axial isotropic scale, without its six-axis cosine
 		// sum: a point emitter must not brighten when rotated toward a diagonal.
-		result += emission * transmission * (phase * fade * fade / (6.0 * max(squaredDistance, 1.0)));
+		result += emission * transmission * (phase * voxelLightAttenuation(squaredDistance) / 6.0);
 	}
 	return result;
 }
@@ -287,10 +337,18 @@ vec3 applyVoxelLighting(vec3 color, vec3 base, vec3 position, vec3 shadingNormal
 	vec3 direct = vec3(0.0);
 	if (voxelParams.y > 0.0)
 		direct = voxelIrradiance(probe, normal, 0.0) * bakedCoverage;
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+	vec3 bakedDirect = direct;
+#endif
 #ifdef ENABLE_VOXEL_DYNAMIC_DIRECT
 	direct += voxelDynamicIrradiance(q, normal, geometric, nodeSurface,
 		view, roughness, f0, specularEnabled, directSpecular) * coverage;
 	directSpecular *= voxelParams.y * coverage;
+#endif
+#if defined(ENABLE_MATERIAL_SPARKLE) && defined(MATERIAL_SPARKLE)
+	if (specularEnabled && voxelParams.y > 0.0 && bakedCoverage > 0.0 &&
+			surfaceGrain.a > 0.0 && any(greaterThan(bakedDirect, vec3(0.0))) && dot(view, view) > 0.000001)
+		directSpecular += voxelStaticGrainIrradiance(probe, normal, geometric, view, bakedDirect) * voxelParams.y;
 #endif
 	vec3 bounce = vec3(0.0);
 	if (voxelParams.z > 0.0)

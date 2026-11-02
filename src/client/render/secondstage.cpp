@@ -199,6 +199,7 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 	static const u8 TEXTURE_EMISSION_MASK = 53;
 	static const u8 TEXTURE_MSAA_EMISSION_MASK = 54;
 	static const u8 TEXTURE_SCENE_STATISTICS = 55;
+	static const u8 TEXTURE_FINAL_COLOR = 56, TEXTURE_FINAL_STATISTICS = 57;
 
 	static const u8 TEXTURE_SCALE_DOWN = 10;
 	static const u8 TEXTURE_SCALE_UP = 20;
@@ -522,10 +523,11 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 			downscale *= 0.5f;
 		}
 
-		if (enable_bloom) {
+		{
 			buffer->setTexture(TEXTURE_BLOOM, scale, "bloom", bloom_format);
 
-			// get bright spots
+			// Linear exposed input for both bloom and exposure metering, including
+			// the configuration with exposure enabled and bloom disabled.
 			u32 shader_id = client->getShaderSource()->getShaderRaw("extract_bloom");
 			RenderStep *extract_bloom = pipeline->addStep<PostProcessingStep>(shader_id, std::vector<u8> { source, TEXTURE_EXPOSURE_1 });
 			extract_bloom->setRenderSource(buffer);
@@ -617,6 +619,29 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 		effect->setBilinearFilter(0, true);
 	effect->setBilinearFilter(1, true);
 	effect->setRenderSource(buffer);
+
+	// Optional scalar probes of the actual final TAA/exposure/bloom/tone result.
+	// Rendering into this diagnostic target never captures or saves an image;
+	// the only readback is a reduced RGBA32F texel, as for scene statistics above.
+	std::string final_statistics_path;
+	g_settings->getNoEx("benchmark_final_scene_log", final_statistics_path);
+	if (!final_statistics_path.empty() &&
+			(driver->getDriverType() == video::EDT_OPENGL || driver->getDriverType() == video::EDT_OPENGL3) &&
+			driver->queryTextureFormat(video::ECF_A32B32G32R32F)) {
+		buffer->setTexture(TEXTURE_FINAL_COLOR, scale, "final_scene", video::ECF_A8R8G8B8);
+		effect->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_FINAL_COLOR));
+		buffer->setTexture(TEXTURE_FINAL_STATISTICS, core::dimension2du(1, 1),
+			"final_scene_statistics", video::ECF_A32B32G32R32F);
+		auto reduce = pipeline->addStep<PostProcessingStep>(client->getShaderSource()->getShaderRaw("scene_statistics"),
+			std::vector<u8>{TEXTURE_FINAL_COLOR});
+		reduce->setRenderSource(buffer);
+		reduce->setBilinearFilter(0, true);
+		reduce->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_FINAL_STATISTICS));
+		pipeline->addStep<SceneStatisticsStep>(buffer, TEXTURE_FINAL_STATISTICS, final_statistics_path);
+		effect = pipeline->addStep<PostProcessingStep>(client->getShaderSource()->getShaderRaw("scene_copy"),
+			std::vector<u8>{TEXTURE_FINAL_COLOR});
+		effect->setRenderSource(buffer);
+	}
 
 	if (enable_auto_exposure) {
 		pipeline->addStep<SwapTexturesStep>(buffer, TEXTURE_EXPOSURE_1, TEXTURE_EXPOSURE_2);

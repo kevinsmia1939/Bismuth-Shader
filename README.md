@@ -15,15 +15,17 @@ Rendering features already in the tree include:
   volumetric fog. Volumetric clouds are optional.
 - Waving water with Fresnel reflections, screen-space reflections and sky
   fallback, refraction and underwater absorption. Caustics are optional.
-- Colored light from placed glowing blocks and held lamps, with voxel visibility
-  and local approximate diffuse bounce.
+- Colored light from placed glowing blocks and held lamps, with smooth ground
+  falloff, voxel visibility and local approximate diffuse bounce.
+- Thin-surface sunlight transmission through grass and leaves, plus restrained,
+  light-dependent sand and snow grain highlights.
 - Optional normal and roughness/metallic maps, rough defaults for unmapped
   textures, preserved emission and normal/roughness mip filtering.
 - TAA, SSAO, exposure, tone mapping and bloom. Motion blur and depth of field
   remain optional.
 
-This is work in progress. The implementations need further combined-image tuning,
-compatibility checks and profiling before a finished preset can be delivered.
+This is work in progress. The combined renderer passes the milestone 6 checks;
+final performance tuning and preset delivery remain milestone 7.
 
 The project follows these milestones:
 
@@ -32,21 +34,21 @@ The project follows these milestones:
 | 1. Baseline and budget | Repeatable forest, sunset river, glowing cave and underwater scenes | Baseline recorded |
 | 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Implemented and checked in the reference scenes |
 | 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Implemented and checked in the reference scenes |
-| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; smoother ground-light falloff is a milestone 6 follow-up |
+| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; ground-light falloff corrected in milestone 6 |
 | 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Implemented and checked in Minetest Game; material cost measured |
-| 6. Lighting, foliage and image stability | Smooth lamp falloff, translucent grass/leaves, restrained sand/snow sparkle and stable TAA/exposure/bloom | New appearance work and combined audit pending |
+| 6. Lighting, foliage and image stability | Smooth lamp falloff, translucent grass/leaves, restrained sand/snow sparkle and stable TAA/exposure/bloom | Implemented and checked in Minetest Game; matched costs recorded |
 | 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
 
-[Milestone 6](doc/developing/graphics-milestone-6.md) starts with smoother ground
-lighting around torches, mese lamps, glowstone and other emitters. It then adds
-light transmission through grass and leaves, subtle sand/snow sparkle, and the
-combined-image audit. Unlit caves must remain dark throughout these changes.
+[Milestone 6](doc/developing/graphics-milestone-6.md) adds smoother ground lighting
+around torches and other emitters, grass/leaf transmission and sand/snow sparkle.
+Its [results](doc/developing/graphics-milestone-6-results/README.md) cover the
+combined image, exact-black unlit caves, lamp removal and compatibility fallbacks.
 
 The performance target is **1080p at 60 FPS on a GTX 1650 Ti**, subject to
 profiling. The historical VoxeLibre Milestone 1 balanced baseline achieved about 41 FPS in
-the forest and river, 67 FPS in the cave and 47 FPS underwater. Those measurements
-precede the latest changes; the current renderer has not been re-benchmarked
-completely. See the [baseline report](doc/developing/graphics-baseline/README.md)
+the forest and river, 67 FPS in the cave and 47 FPS underwater. Those historical
+measurements precede the latest changes; current matched costs are in the
+milestone 6 report. See the [baseline report](doc/developing/graphics-baseline/README.md)
 for hardware, settings, frame times and raw data.
 
 The historical VoxeLibre [milestones 2–4 results](doc/developing/graphics-milestones-2-4-results/README.md)
@@ -67,6 +69,11 @@ repeated 1080p timings. Enabled averages are about 43 FPS in the forest, 41 FPS
 at the river, 34 FPS in the cave and 44 FPS underwater. These Minetest Game
 scenes differ from the historical VoxeLibre scenes. The 60 FPS preset target
 remains open for milestone 7.
+
+Milestone 6's current complete-renderer runs averaged **43.7 FPS in the forest,
+37.9 at the river, 35.3 in the cave and 41.2 underwater** at 1080p. Effect controls
+and repeat ranges are preserved in its results report. None of these scene
+averages meets the final 60 FPS target yet.
 
 To try the renderer, install the dependencies from the existing
 [build documentation](doc/compiling/README.md), then build this checkout:

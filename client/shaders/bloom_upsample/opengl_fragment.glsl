@@ -24,8 +24,9 @@ void main(void)
 
 	vec3 base = texture2D(current, varTexCoord.st).rgb;
 
-	gl_FragColor = max(vec4(base +
+	vec3 color = base +
 			(a + c + g + i) * 0.0625 +
 			(b + d + f + h) * 0.125 +
-			e * 0.25, 1.), 1e-4);
+			e * 0.25;
+	gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
 }

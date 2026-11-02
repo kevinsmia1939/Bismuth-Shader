@@ -333,6 +333,8 @@ void set_default_settings()
 	settings->setDefault("enable_waving_plants", "false");
 	settings->setDefault("exposure_compensation", "0.0");
 	settings->setDefault("enable_auto_exposure", "false");
+	settings->setDefault("auto_exposure_speed_dark_bright", "3.0");
+	settings->setDefault("auto_exposure_speed_bright_dark", "1.0");
 	settings->setDefault("debanding", "true");
 	settings->setDefault("antialiasing", "none");
 	settings->setDefault("taa_history_weight", "0.9");
@@ -340,6 +342,7 @@ void set_default_settings()
 	settings->setDefault("enable_voxel_lighting", "false");
 	settings->setDefault("enable_voxel_dynamic_lighting", "true");
 	settings->setDefault("enable_voxel_dynamic_direct", "true");
+	settings->setDefault("voxel_light_soft_falloff", "true");
 	settings->setDefault("enable_voxel_transmission", "true");
 	settings->setDefault("enable_voxel_fog_lighting", "false");
 	settings->setDefault("voxel_fog_strength", "0.5");
@@ -395,6 +398,7 @@ void set_default_settings()
 	settings->setDefault("water_refraction_strength", "1.0");
 	settings->setDefault("enable_material_shading", "false");
 	settings->setDefault("material_roughness", "0.8");
+	settings->setDefault("enable_material_sparkle", "false");
 	settings->setDefault("material_normal_strength", "0.2");
 	settings->setDefault("material_map_normal_strength", "1.0");
 	settings->setDefault("enable_indirect_lighting", "false");

@@ -7,7 +7,7 @@ reference scenes, following the [Milestone 1 baseline](graphics-baseline/README.
 Material response is implemented and checked in
 [Milestone 5](graphics-milestone-5.md).
 
-[Milestone 6](graphics-milestone-6.md) now includes these pending additions, in
+[Milestone 6](graphics-milestone-6.md) covers the following implemented stages, in
 implementation order, followed by the combined-image stability audit:
 
 | Stage | Concrete scope | Acceptance |
@@ -17,10 +17,11 @@ implementation order, followed by the combined-image stability audit:
 | 6C. Sand and snow sparkle | Sparse, restrained grain highlights driven by incident light and view direction | Distinct sand/snow response, stable world-space detail, filtered distant glints and no sparkle in unlit areas |
 | 6D. Combined-image stability | Tune TAA, exposure, tone mapping and mild bloom; check movement, animation, resizing and water transitions | No persistent trails, exposure flashes or history smearing; previous lighting, water and darkness checks still pass |
 
-All four stages remain pending. Earlier milestone reports retain their original
-scope and evidence; the new falloff and foliage/sparkle requirements are not
-claimed complete by those reports. Final preset delivery and the complete
-performance budget remain milestone 7. Items in the historical remaining-work
+All four stages pass the C++, numeric GPU, native scene and compatibility checks.
+The [milestone 6 report](graphics-milestone-6-results/README.md) records their
+combined audit and matched frame costs. Earlier milestone reports retain their
+original scope and evidence. Final preset delivery and the complete performance
+budget remain milestone 7. Items in the historical remaining-work
 column below are not additional requirements for the completed bounded milestones.
 
 Minetest Game is now the primary integration target. The earlier baseline and

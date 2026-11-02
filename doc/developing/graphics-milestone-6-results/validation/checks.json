@@ -1,0 +1,260 @@
+{
+  "source_guard": "3ef840b432b175e7da07c3a698ebc8c6259f1183857147037c777b834e83ca21",
+  "checks": [
+    {
+      "name": "cpp",
+      "log": "verified-cpp.log",
+      "sha256": "b8f960ec77c4883020711283fcd6b5ca8be41c6c954bcc87e423cb2e64a0b7cd"
+    },
+    {
+      "name": "blend",
+      "log": "verified-blend.log",
+      "sha256": "f5af9496b49ebbf2c8a539e9032764f5ae865fdae03cfb2e238c8b31a9c5993b"
+    },
+    {
+      "name": "nvidia330-surface_materials",
+      "log": "verified-nvidia330-surface_materials.log",
+      "sha256": "445981a53bc768b163ee605175eaefe13e8a15bb7a0e47d1950be80e8e34a9e7"
+    },
+    {
+      "name": "nvidia330-image_stability",
+      "log": "verified-nvidia330-image_stability.log",
+      "sha256": "dd30814199b23e930d936f7910b99b806035dd6961da3b7d88b2ecb9920f18e6"
+    },
+    {
+      "name": "nvidia330-light_falloff",
+      "log": "verified-nvidia330-light_falloff.log",
+      "sha256": "5a33652885d25b2f1a6aae451d90f100cb449cc7c56ec1366d7e852e9f3f2d53"
+    },
+    {
+      "name": "nvidia330-floor_shading",
+      "log": "verified-nvidia330-floor_shading.log",
+      "sha256": "823ceaddb5291853a4059985f7a5d98a80e634c571fc220dc777cb8d861b6674"
+    },
+    {
+      "name": "nvidia330-dynamic_lighting",
+      "log": "verified-nvidia330-dynamic_lighting.log",
+      "sha256": "b41f8d4c293e5fcbc5792fa926890d4ea29e0e5707d3303062bb8ccb910e8ad6"
+    },
+    {
+      "name": "nvidia330-point_materials",
+      "log": "verified-nvidia330-point_materials.log",
+      "sha256": "858910d46166140c456cfd813b389bfbb410beeada433267fe2959c0c62f8f5c"
+    },
+    {
+      "name": "nvidia330-native_emission",
+      "log": "verified-nvidia330-native_emission.log",
+      "sha256": "d65c3cc187ee8f521f9c4cc2e294d56e3de5c63df05c53ae5665083b45917c9a"
+    },
+    {
+      "name": "nvidia330-dark_caves",
+      "log": "verified-nvidia330-dark_caves.log",
+      "sha256": "c7564c22d20a309acfb70cd1f50dc16ee860fc169cfaf6bc36d3e3c263543d75"
+    },
+    {
+      "name": "nvidia330-cloud_shadows",
+      "log": "verified-nvidia330-cloud_shadows.log",
+      "sha256": "ee4ab38a57f44fa73a1724d780d9ee46922d8151d5afe5672831a1291bcae678"
+    },
+    {
+      "name": "nvidia330-surface_directional",
+      "log": "verified-nvidia330-surface_directional.log",
+      "sha256": "d117ddfdbde9eb15241157f9a5be3015623726d761c01dce74db8d1c18a489ce"
+    },
+    {
+      "name": "nvidia330-camera_effects",
+      "log": "verified-nvidia330-camera_effects.log",
+      "sha256": "d7a96866888ccf51776878de0a52783bf635db306b489dd74fde256dfffe05a9"
+    },
+    {
+      "name": "nvidia330-water_lighting",
+      "log": "verified-nvidia330-water_lighting.log",
+      "sha256": "5e0f2b0d97613f3716b66685a9fe87fb4b49e98949b9f0896d321873b3f4f7b4"
+    },
+    {
+      "name": "nvidia330-voxel_fog",
+      "log": "verified-nvidia330-voxel_fog.log",
+      "sha256": "d3564eb09f74df01e7080e9dcae7d3eee9ad21e0ae70606d7fdf080cc3faef4e"
+    },
+    {
+      "name": "nvidia330-fog_denoise",
+      "log": "verified-nvidia330-fog_denoise.log",
+      "sha256": "b0a2bb2546672ee6aa70399e55d1bb1e10d7fc2e533008c3a59f120a1346e001"
+    },
+    {
+      "name": "nvidia330-volumetric_clouds",
+      "log": "verified-nvidia330-volumetric_clouds.log",
+      "sha256": "302b2308c9ca2a81b3dbc5a0dc8bb68548a92ac4508eae8ac19e00a453afe2fa"
+    },
+    {
+      "name": "nvidia120-surface_materials",
+      "log": "verified-nvidia120-surface_materials.log",
+      "sha256": "445981a53bc768b163ee605175eaefe13e8a15bb7a0e47d1950be80e8e34a9e7"
+    },
+    {
+      "name": "nvidia120-image_stability",
+      "log": "verified-nvidia120-image_stability.log",
+      "sha256": "dd30814199b23e930d936f7910b99b806035dd6961da3b7d88b2ecb9920f18e6"
+    },
+    {
+      "name": "nvidia120-light_falloff",
+      "log": "verified-nvidia120-light_falloff.log",
+      "sha256": "5a33652885d25b2f1a6aae451d90f100cb449cc7c56ec1366d7e852e9f3f2d53"
+    },
+    {
+      "name": "nvidia120-floor_shading",
+      "log": "verified-nvidia120-floor_shading.log",
+      "sha256": "823ceaddb5291853a4059985f7a5d98a80e634c571fc220dc777cb8d861b6674"
+    },
+    {
+      "name": "nvidia120-dynamic_lighting",
+      "log": "verified-nvidia120-dynamic_lighting.log",
+      "sha256": "b41f8d4c293e5fcbc5792fa926890d4ea29e0e5707d3303062bb8ccb910e8ad6"
+    },
+    {
+      "name": "nvidia120-point_materials",
+      "log": "verified-nvidia120-point_materials.log",
+      "sha256": "858910d46166140c456cfd813b389bfbb410beeada433267fe2959c0c62f8f5c"
+    },
+    {
+      "name": "nvidia120-native_emission",
+      "log": "verified-nvidia120-native_emission.log",
+      "sha256": "d65c3cc187ee8f521f9c4cc2e294d56e3de5c63df05c53ae5665083b45917c9a"
+    },
+    {
+      "name": "nvidia120-dark_caves",
+      "log": "verified-nvidia120-dark_caves.log",
+      "sha256": "c7564c22d20a309acfb70cd1f50dc16ee860fc169cfaf6bc36d3e3c263543d75"
+    },
+    {
+      "name": "nvidia120-cloud_shadows",
+      "log": "verified-nvidia120-cloud_shadows.log",
+      "sha256": "ee4ab38a57f44fa73a1724d780d9ee46922d8151d5afe5672831a1291bcae678"
+    },
+    {
+      "name": "nvidia120-surface_directional",
+      "log": "verified-nvidia120-surface_directional.log",
+      "sha256": "d117ddfdbde9eb15241157f9a5be3015623726d761c01dce74db8d1c18a489ce"
+    },
+    {
+      "name": "nvidia120-camera_effects",
+      "log": "verified-nvidia120-camera_effects.log",
+      "sha256": "8f39ec258ea204ded8b1b44551f8caee6628840a84ca38fd242e51818f2453d6"
+    },
+    {
+      "name": "nvidia120-water_lighting",
+      "log": "verified-nvidia120-water_lighting.log",
+      "sha256": "5e0f2b0d97613f3716b66685a9fe87fb4b49e98949b9f0896d321873b3f4f7b4"
+    },
+    {
+      "name": "nvidia120-voxel_fog",
+      "log": "verified-nvidia120-voxel_fog.log",
+      "sha256": "d3564eb09f74df01e7080e9dcae7d3eee9ad21e0ae70606d7fdf080cc3faef4e"
+    },
+    {
+      "name": "nvidia120-fog_denoise",
+      "log": "verified-nvidia120-fog_denoise.log",
+      "sha256": "b0a2bb2546672ee6aa70399e55d1bb1e10d7fc2e533008c3a59f120a1346e001"
+    },
+    {
+      "name": "nvidia120-volumetric_clouds",
+      "log": "verified-nvidia120-volumetric_clouds.log",
+      "sha256": "394d32f61e14efa2cb6f1962c190bf37b360ebef022d27fb57fbea49d0ccb9b3"
+    },
+    {
+      "name": "mesa330-surface_materials",
+      "log": "verified-mesa330-surface_materials.log",
+      "sha256": "2487ba583decbf3647de6a5cd874d46e577e5b14fcb3b12cf0cde136e7ac49cf"
+    },
+    {
+      "name": "mesa330-image_stability",
+      "log": "verified-mesa330-image_stability.log",
+      "sha256": "723fbf949ff7ad35ff785e9096f6bf3646e0cd8ce2074fd2162987a2e01419c7"
+    },
+    {
+      "name": "mesa330-light_falloff",
+      "log": "verified-mesa330-light_falloff.log",
+      "sha256": "fec0f43e6d1693790e12091b0edeb92ece315551bb6fca7e17303872f9660ab0"
+    },
+    {
+      "name": "mesa330-floor_shading",
+      "log": "verified-mesa330-floor_shading.log",
+      "sha256": "fb57f8e9de2f1b4bd8ec0d4e7793745df1188fc12a5696cc3b81ec275a8fd661"
+    },
+    {
+      "name": "mesa330-dynamic_lighting",
+      "log": "verified-mesa330-dynamic_lighting.log",
+      "sha256": "25a83b86ec0e8b6293576501992cede8181d7fd6c2d4a0da7628aa4e98be834e"
+    },
+    {
+      "name": "mesa330-point_materials",
+      "log": "verified-mesa330-point_materials.log",
+      "sha256": "eca10b5c79e94597ebdac78cd815dbd81dbbbf4ef83ea5da9feaef804db92afd"
+    },
+    {
+      "name": "mesa330-native_emission",
+      "log": "verified-mesa330-native_emission.log",
+      "sha256": "667b766683a1f3ee7056db2a5578cb79b5180f00d2391f8744ef402fde3dbf44"
+    },
+    {
+      "name": "mesa330-dark_caves",
+      "log": "verified-mesa330-dark_caves.log",
+      "sha256": "d4f01e70153ecb370599039687eb96ea15f309bfd6b91de648a090657e6c7844"
+    },
+    {
+      "name": "mesa330-cloud_shadows",
+      "log": "verified-mesa330-cloud_shadows.log",
+      "sha256": "80ee964357739c4534849df0c7912fa4b346c29013ec1fc8ae6ee09d7dc906eb"
+    },
+    {
+      "name": "mesa330-surface_directional",
+      "log": "verified-mesa330-surface_directional.log",
+      "sha256": "d4be3106ee74cf73eb8446340836b20f3b6abd7cab975c23442b96c6e888a9ce"
+    },
+    {
+      "name": "mesa330-camera_effects",
+      "log": "verified-mesa330-camera_effects.log",
+      "sha256": "d3c1e7dd86557176c18d1706584e751bdc01ba3552244d49256121705060a006"
+    },
+    {
+      "name": "mesa330-water_lighting",
+      "log": "verified-mesa330-water_lighting.log",
+      "sha256": "edad4b6e5f528a64f98244e760ca817fcb5dcf6c6e21ded9a5b7674a5eb2675a"
+    },
+    {
+      "name": "mesa330-voxel_fog",
+      "log": "verified-mesa330-voxel_fog.log",
+      "sha256": "cff0e7b000ca9c91d27ee71890aac2f3aa0e0d379a50212fddb12ad3b24b3579"
+    },
+    {
+      "name": "mesa330-fog_denoise",
+      "log": "verified-mesa330-fog_denoise.log",
+      "sha256": "aab05ced5a6d234104ff09a489c4433ba969bcdfb527e05bc7d6c2d60e2d0303"
+    },
+    {
+      "name": "mesa330-volumetric_clouds",
+      "log": "verified-mesa330-volumetric_clouds.log",
+      "sha256": "8a91a5ff352f9322536740b44f988ba7ce555e92aa90e07f9cab8e2526109225"
+    },
+    {
+      "name": "native",
+      "log": "verified-native.log",
+      "sha256": "b9349b03e6f041f9d213abff04d02ff39a0c6f1cd526ba19519668efc3e54086"
+    },
+    {
+      "name": "legacy-surfaces",
+      "log": "verified-legacy-surfaces.log",
+      "sha256": "0ee7b9b1ae18e86e666525c5c61700ea78668a05fee2efceab20de126c533460"
+    },
+    {
+      "name": "exposure-no-bloom",
+      "log": "verified-exposure-no-bloom.log",
+      "sha256": "08ce20f93c8c76cfe500ff39e0332024b03480c6ffa9d4331de3137937cbee65"
+    },
+    {
+      "name": "forward-surfaces",
+      "log": "verified-forward-surfaces.log",
+      "sha256": "216cda51e2c986677e3ecde704e4695431d83f5bda720312f5836b2fbc83263d"
+    }
+  ]
+}

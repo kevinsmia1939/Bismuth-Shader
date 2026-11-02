@@ -371,6 +371,7 @@ void VoxelLighting::update(Client *client, v3f sun_direction, v3f sunlight, u32 
 	m_last_update = time;
 
 	voxel_light::Grid grid(n);
+	grid.soft_falloff = g_settings->getBool("voxel_light_soft_falloff");
 	grid.sun_direction = sun_direction;
 	if (grid.sun_direction.getLengthSQ() > 0.00001f) {
 		grid.sun_direction.normalize();

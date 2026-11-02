@@ -15,11 +15,6 @@ struct ExposureParams {
 uniform sampler2D exposure;
 uniform sampler2D screen;
 
-#ifdef ENABLE_BLOOM
-uniform float bloomStrength;
-#else
-const float bloomStrength = 1.0;
-#endif
 uniform ExposureParams exposureParams;
 uniform float animationTimerDelta;
 
@@ -54,7 +49,7 @@ void main(void)
 	float luminance = getLuminance(averageColor);
 	luminance /= n;
 
-	luminance /= pow(2., previousExposure) * bloomStrength * exposureParams.compensationFactor; // compensate for the configurable factors
+	luminance /= pow(2., previousExposure) * exposureParams.compensationFactor;
 
 	luminance = clamp(luminance, exposureParams.luminanceMin, exposureParams.luminanceMax);
 

@@ -1,0 +1,12 @@
+{
+  "game": "Minetest Game",
+  "game_revision": "9e895af6e9feb98332fa1a778001442f5669bc20",
+  "base_commit": "6e1df51378d38e9d0035d8fe66910e410d18f63b",
+  "binary_sha256": "6de3fe32dec98c23ac61fc1b031564bb76596e4bd31ba2dc456b9d544045ed35",
+  "source_map_sha256": "d5a67b5302a195473de0a24c91c8e8bcec55397afcbdd69022e9f5f4e33db5d4",
+  "surface_map_sha256": "91e8c8c9d0528f82cbd11668c5086fb8841321c6d93168cbec9225db140dc762",
+  "screenshots": false,
+  "input_device_automation": false,
+  "runtime_backend": "SDL2 Wayland / NVIDIA OpenGL",
+  "source_guard": "3ef840b432b175e7da07c3a698ebc8c6259f1183857147037c777b834e83ca21"
+}

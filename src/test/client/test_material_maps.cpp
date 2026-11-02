@@ -8,6 +8,7 @@
 #include "client/material_mipmaps.h"
 #include "porting.h"
 #include "irr_ptr.h"
+#include "client/surface_material.h"
 #include <irrlicht.h>
 #include <IVideoDriver.h>
 #include <IGPUProgrammingServices.h>
@@ -293,6 +294,52 @@ TEST_CASE("Material map identity survives mesh grouping and animation", "[client
 	ShaderConstants ordinary;
 	ShaderFeatures{}.setConstants(ordinary);
 	CHECK(ordinary.count("MATERIAL_EMISSIVE") == 0);
+}
+
+TEST_CASE("Surface response follows node groups and keeps distinct shader identities", "[client][render][surface-material]")
+{
+	ContentFeatures node;
+	node.drawtype = NDT_PLANTLIKE;
+	node.groups["grass"] = 1;
+	auto response = SurfaceMaterial::fromNode(node);
+	CHECK(response.translucency > 0);
+	CHECK(response.sparkle == 0);
+	node.waving = 0; // Classification does not depend on animation being enabled.
+	CHECK(SurfaceMaterial::fromNode(node).translucency == response.translucency);
+	node.drawtype = NDT_NORMAL;
+	CHECK(SurfaceMaterial::fromNode(node).translucency == 0);
+	node.groups.clear();
+	node.groups["leaves"] = 1;
+	CHECK(SurfaceMaterial::fromNode(node).translucency > 0);
+	node.groups["shader_translucency"] = 0;
+	CHECK(SurfaceMaterial::fromNode(node).translucency == 0);
+	node.groups["shader_translucency"] = 200;
+	CHECK(SurfaceMaterial::fromNode(node).translucency == 1);
+	node.groups.clear();
+	node.groups["sand"] = 1;
+	CHECK(SurfaceMaterial::fromNode(node).sparkle == 1);
+	node.groups["snowy"] = 1;
+	CHECK(SurfaceMaterial::fromNode(node).sparkle == 2);
+	node.groups["shader_sparkle"] = 0;
+	CHECK(SurfaceMaterial::fromNode(node).sparkle == 0);
+	node.groups.clear();
+	CHECK(SurfaceMaterial::fromNode(node).translucency == 0);
+	CHECK(SurfaceMaterial::fromNode(node).sparkle == 0);
+	ShaderFeatures features;
+	features.foliage_translucency = 0.35f;
+	ShaderConstants foliage, sand, snow, ordinary;
+	features.setConstants(foliage);
+	CHECK(foliage.count("MATERIAL_FOLIAGE") == 1);
+	features.foliage_translucency = 0;
+	features.sparkle_material = 1;
+	features.setConstants(sand);
+	features.sparkle_material = 2;
+	features.setConstants(snow);
+	ShaderFeatures{}.setConstants(ordinary);
+	CHECK(sand != snow);
+	CHECK(foliage != ordinary);
+	CHECK(ordinary.count("MATERIAL_FOLIAGE") == 0);
+	CHECK(ordinary.count("MATERIAL_SPARKLE") == 0);
 }
 
 TEST_CASE("MRT geometry metadata bypasses blending while color and emission retain coverage", "[.][client][render][surface-blend]")

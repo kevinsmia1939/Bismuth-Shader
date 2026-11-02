@@ -14,6 +14,7 @@
 #include "texturepaths.h"
 #include "wieldmesh.h" // createAnimationFrames
 #include "tile.h"
+#include "surface_material.h"
 #include <IMeshManipulator.h>
 #include <SMesh.h>
 #include <SkinnedMesh.h>
@@ -411,10 +412,13 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 
 	const bool preserve_emission = f.light_source &&
 		(useMaterialMaps() || useSceneEmissionMask() || useCloudShadows() || voxelLightingEnabled());
+	const auto surface_material = SurfaceMaterial::fromNode(f);
 	GetShaderCallback tile_shader = [&] (bool array_texture) {
 		ShaderFeatures features;
 		features.array_texture = array_texture;
 		features.emissive_surface = preserve_emission;
+		features.foliage_translucency = drawtype == NDT_PLANTLIKE_ROOTED ? 0.0f : surface_material.translucency;
+		features.sparkle_material = surface_material.sparkle;
 		return shdsrc->getShader("nodes_shader", material_type, drawtype, features);
 	};
 
@@ -424,6 +428,8 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 		ShaderFeatures features;
 		features.array_texture = array_texture;
 		features.emissive_surface = preserve_emission;
+		features.foliage_translucency = drawtype == NDT_PLANTLIKE_ROOTED ? 0.0f : surface_material.translucency;
+		features.sparkle_material = surface_material.sparkle;
 		return shdsrc->getShader("nodes_shader", overlay_material, drawtype, features);
 	};
 
@@ -494,6 +500,9 @@ void NodeVisuals::updateTextures(ContentFeatures &f, ITextureSource *tsrc,
 		ShaderFeatures features;
 		features.array_texture = array_texture;
 		features.emissive_surface = preserve_emission;
+		features.foliage_translucency = surface_material.translucency;
+		// A rooted plant's base can be sand; its special tile is the plant.
+		features.sparkle_material = drawtype == NDT_PLANTLIKE_ROOTED ? 0 : surface_material.sparkle;
 		return shdsrc->getShader("nodes_shader", special_material, drawtype, features);
 	};
 

@@ -1,0 +1,85 @@
+{
+  "game": "minetest",
+  "scenes": [
+    {
+      "evidence": {
+        "biome": "coniferous_forest",
+        "floor": "default:dirt_with_coniferous_litter",
+        "leaves": 59466
+      },
+      "id": "forest",
+      "pitch": 0.08,
+      "pos": {
+        "x": 0,
+        "y": 12,
+        "z": 0
+      },
+      "timeofday": 0.5,
+      "yaw": 1.1071487177940904
+    },
+    {
+      "evidence": {
+        "banks_within": 32,
+        "channel_noise": -0.03528326749801636,
+        "surface": {
+          "x": -50,
+          "y": 1,
+          "z": 359
+        },
+        "water": "default:water_source"
+      },
+      "id": "sunset_river",
+      "pitch": 0.5,
+      "pos": {
+        "x": -50,
+        "y": 6,
+        "z": 349
+      },
+      "timeofday": 0.78,
+      "yaw": 0
+    },
+    {
+      "evidence": {
+        "floor": "default:stone",
+        "lamp": {
+          "x": -3,
+          "y": -69,
+          "z": 11
+        },
+        "lamp_name": "default:meselamp",
+        "open_distance": 15
+      },
+      "id": "glowing_cave",
+      "pitch": 0,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 8
+      },
+      "timeofday": 0.5,
+      "yaw": 0
+    },
+    {
+      "evidence": {
+        "depth": 5,
+        "surface": {
+          "x": -50,
+          "y": 1,
+          "z": 359
+        },
+        "water": "default:water_source"
+      },
+      "id": "underwater",
+      "pitch": 0.12,
+      "pos": {
+        "x": -50,
+        "y": -3,
+        "z": 359
+      },
+      "timeofday": 0.5,
+      "yaw": 0
+    }
+  ],
+  "seed": "13371337",
+  "version": 1
+}

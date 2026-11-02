@@ -285,12 +285,13 @@ public:
 	{
 		if (voxelLightingEnabled())
 			constants["ENABLE_VOXEL_LIGHTING"] = 1;
+		constants["VOXEL_LIGHT_SOFT_FALLOFF"] = g_settings->getBool("voxel_light_soft_falloff") ? 1 : 0;
 		if (voxelDynamicDirectEnabled()) {
 			constants["ENABLE_VOXEL_DYNAMIC_DIRECT"] = 1;
 			constants["MAX_VOXEL_DYNAMIC_LIGHTS"] = int(VoxelLighting::MAX_DYNAMIC_LIGHTS);
-			if (name == "nodes_shader" && useMaterialMaps())
-				constants["ENABLE_VOXEL_MATERIAL_SPECULAR"] = 1;
 		}
+		if (voxelLightingEnabled() && name == "nodes_shader" && useMaterialMaps())
+			constants["ENABLE_VOXEL_MATERIAL_SPECULAR"] = 1;
 		if (g_settings->getBool("enable_camera_vignette")) {
 			constants["ENABLE_CAMERA_VIGNETTE"] = 1;
 			constants["CAMERA_VIGNETTE_STRENGTH"] =
@@ -349,6 +350,11 @@ public:
 
 		if (g_settings->getBool("enable_water_reflections"))
 			constants["ENABLE_WATER_REFLECTIONS"] = 1;
+		if (name == "nodes_shader" && g_settings->getBool("enable_translucent_foliage"))
+			constants["ENABLE_TRANSLUCENT_FOLIAGE"] = 1;
+		if (name == "nodes_shader" && supportsSceneSurface() &&
+				g_settings->getBool("enable_material_shading") && g_settings->getBool("enable_material_sparkle"))
+			constants["ENABLE_MATERIAL_SPARKLE"] = 1;
 
 		if (g_settings->getBool("enable_dynamic_shadows")) {
 			constants["ENABLE_DYNAMIC_SHADOWS"] = 1;
@@ -357,9 +363,6 @@ public:
 
 			if (g_settings->getBool("shadow_poisson_filter"))
 				constants["POISSON_FILTER"] = 1;
-
-			if (g_settings->getBool("enable_translucent_foliage"))
-				constants["ENABLE_TRANSLUCENT_FOLIAGE"] = 1;
 
 			// FIXME: The node specular effect is currently disabled due to mixed in-game
 			// results. This shader should not be applied to all nodes equally. See #15898
@@ -992,6 +995,9 @@ void ShaderSource::generateShader(ShaderInfo &shaderinfo)
 			(name == "scene_lighting" && useVoxelFogLighting()) ||
 			(name == "water_volume" && useVoxelWaterLighting())))
 		fragment_shader = m_sourcecache.getOrLoad("common", "voxel_lighting.glsl") + "\n" + fragment_shader;
+	if (name == "nodes_shader" &&
+			(shaderinfo.input_constants.count("MATERIAL_FOLIAGE") || shaderinfo.input_constants.count("MATERIAL_SPARKLE")))
+		fragment_shader = m_sourcecache.getOrLoad("common", "surface_material.glsl") + "\n" + fragment_shader;
 	if (useSceneEmissionMask() && (name == "nodes_shader" || name == "object_shader"))
 		fragment_shader = m_sourcecache.getOrLoad("common", "scene_emission.glsl") + "\n" + fragment_shader;
 	if (useWaterRefraction() && name == "nodes_shader")
@@ -1101,6 +1107,10 @@ void ShaderFeatures::setConstants(ShaderConstants &consts) const
 {
 	if (emissive_surface)
 		consts["MATERIAL_EMISSIVE"] = 1;
+	if (foliage_translucency > 0.0f)
+		consts["MATERIAL_FOLIAGE"] = std::clamp(foliage_translucency, 0.0f, 1.0f);
+	if (sparkle_material > 0)
+		consts["MATERIAL_SPARKLE"] = int(sparkle_material);
 	if (array_texture)
 		consts["USE_ARRAY_TEXTURE"] = 1;
 	if (skinning) {

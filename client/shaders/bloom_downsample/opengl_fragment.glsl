@@ -22,12 +22,14 @@ void main(void)
 	vec3 j = texture2D(rendered, varTexCoord.st + vec2(-0.5, -0.5) * tx).rgb;
 	vec3 k = texture2D(rendered, varTexCoord.st + vec2(0.5, -0.5) * tx).rgb;
 	vec3 l = texture2D(rendered, varTexCoord.st + vec2(-0.5, 0.5) * tx).rgb;
-	vec3 m = texture2D(rendered, varTexCoord.st + vec2(-0.5, 0.5) * tx).rgb;
+	vec3 m = texture2D(rendered, varTexCoord.st + vec2(0.5, 0.5) * tx).rgb;
 
 	vec3 color =
 		(a + c + g + i) * 0.03125 +
 		(b + d + f + h) * 0.0625 +
 		(e + j + k + l + m) * 0.125;
 
-	gl_FragColor = max(vec4(color, 1.0), 1e-4);
+	// Black is valid radiance. Exposure metering applies its own luminance
+	// bounds; a positive RGB floor here creates light in completely dark rooms.
+	gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
 }

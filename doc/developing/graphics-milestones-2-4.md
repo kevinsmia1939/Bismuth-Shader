@@ -49,19 +49,52 @@ Completion is unproven until each acceptance criterion has current implementatio
 and numeric/runtime evidence. See the [measured baseline](graphics-baseline/README.md)
 for the initial performance and its limitations.
 
-## Paused checkpoint
+## Current verification
 
-Implementation is paused at the user's request. The Release build and complete
+Milestones 2–4 are implemented and verified in the controlled native scenes and
+tested desktop OpenGL paths. The [validation and lighting-cost report](graphics-milestones-2-4-results/README.md)
+contains raw evidence, settings, source hashes and reproduction details.
+
+The resumed Release build and complete
 C++ suite passed (353 legacy tests and 53 default Catch cases). Numeric water
 checks, including the final continuous TIR correction, passed on NVIDIA GLSL
 120/330 and Mesa llvmpipe GLSL 330. Atmosphere, shadow and colored-light checks
 also passed on the tested paths.
 
-The eleven-phase native VoxeLibre replay passed before the final TIR gain
-correction. A replay of that final correction was interrupted by the pause and
-must be completed. The 1080p comparison of balanced rendering with native-light
-control is also unfinished; partial/interrupted runs do not establish the final
-lighting cost or a 60 FPS result. Milestones 2–4 are not marked complete.
+The eleven-phase native VoxeLibre replay passed with the final TIR gain
+correction and opt-in scalar scene statistics. Cave darkness, warm lamp
+brightening/removal and water transitions were checked against actual composed
+scene values. Two repeats per timing condition used a balanced/control/control/
+balanced order, identical 1080p/FOV/view-distance settings and the same frozen
+world. The complete local-light path adds 3.1–4.9 ms per frame in these scenes,
+including the worker, direct lighting and bounce. This is not an isolated
+diffuse-GI or GPU-pass measurement. Partial/interrupted runs are excluded.
+
+Balanced averages were 41.8 FPS in the forest, 40.5 FPS at the river, 65.9 FPS in
+the cave and 51.0 FPS underwater. Only the cave meets the proposed 60 FPS/p95
+budget. The control also misses 60 FPS in the forest and river; further complete
+renderer optimization and the final preset remain milestone 7.
+
+## Acceptance audit
+
+| Requirement | Current evidence |
+| --- | --- |
+| Stable soft shadows during movement | Transported shadow-camera basis and fixed light-space PCSS kernel; C++ noon/custom-source basis checks, numeric PCSS warp/receiver tests, and native camera rotation beyond the frustum recapture threshold. |
+| Darker interiors and nearby fog detail | Native cave mean luminance 0.000006 versus forest 0.089346. Production haze matches independent height quadrature and preserves one-node RGB within 0.002 in the numeric fixture. |
+| Smooth daylight and restrained shafts; optional clouds | Shared linear source, horizon fade and natural sunset warmth; C++ radiance-continuity checks and native sunset sweep (largest sampled mean-luminance step 0.008390). The replay uses eight fog steps, half resolution and game strength 0.15; volumetric clouds remain optional. |
+| Waves, reflections and fallback | Shared source/flow geometry and interface-normal tests; production SSR tests recover actual donor radiance, match an analytic edge-confidence curve and reject foreground/water hits. Native river motion passed. |
+| Refraction, absorption, shorelines and entry/exit | Numeric Snell/TIR, wavelength-dependent absorption, thin-water transmission, edge-radiance fading and full scene-pass checks. Native entry/exit largest sampled luminance steps were 0.004590/0.006712. |
+| Consistent colored placed/held lamps | Numeric CPU/GPU color/visibility/composition tests plus native warm RGB source packets and actual warm RGB brightening of the cave. Underwater torch transport passed. |
+| Lamps clear when removed | Native scene returned to its original darkness for three consecutive samples within 289.2 ms for glowstone and 185.6 ms for the held torch. Moving-lamp position changes are checked by production GLSL and exercised in the native replay. |
+| Ordinary walls block direct light | CPU opaque-wall/closed-room tests and GPU occupancy/transmission tests, including live blocker edits while the baked field remains stale. |
+| Subtle, affordable local bounce | Closed-room darkness and colored corner-bounce tests, actual native darkness after source removal, bounded 32-node/one-bounce/0.35-gain preset and the matched lighting-cost comparison above. |
+
+These checks establish the requested behavior in the tested scenes. Screen-space
+reflection coverage, finite shadow resolution/sampling, conservative partial-node
+occlusion and asynchronous static/bounce updates remain approximation limits.
+The scalar replay cannot inspect every pixel. Material/asset compatibility,
+general combined-image stability and final preset delivery remain milestones
+5–7, rather than additional realism work for these three milestones.
 
 ## Implemented changes and ongoing verification
 
@@ -102,6 +135,23 @@ requires real frame coverage in every exercise window, correct dimensions,
 current lamp/medium state, bound effects and clean shutdown. It preserves raw
 CSV/logs, exact config, scene manifest and source/binary hashes. This 640×360,
 30-FPS-capped replay validates transitions; it is not a 1080p performance result.
+
+The replay turns the camera past the shadow-frustum's 15-degree recapture
+threshold. `benchmark_scene_log` installs a test-only reduction pass: a fixed
+16×9 set of probes measures mean linear RGB and sampled peak luminance after
+fog/water composition and before TAA/exposure. Only one RGBA32F texel is read per
+frame; no image is stored. Its buffered CSV detects broad brightness failures,
+checks that caves stay substantially darker than the forest, confirms warm lamp
+color in the composed scene, and checks removal against the original darkness.
+Three consecutive dark samples must arrive within one second of lamp removal.
+Per-pixel numeric tests cover shoreline, reflection-edge and critical-angle
+continuity. Fixed scalar probes cannot certify every pixel or visual parity with
+a particular shader pack.
+
+This diagnostic is used by the mono desktop-OpenGL replay and is disabled during
+performance measurement. Without `benchmark_scene_log`, its pass, texture and
+readback are absent. The runner preserves `launch.conf` separately from
+`client.conf`, which the engine may rewrite on shutdown, and hashes both.
 
 `benchmark_frame_progress=true` is a developer-only companion to
 `benchmark_frame_log`; it emits one checkpoint per 30 buffered frames. It is off

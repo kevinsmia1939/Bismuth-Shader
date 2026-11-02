@@ -18,6 +18,7 @@
 #include "cloud_denoise.h"
 #include "fog_denoise.h"
 #include "voxel_lighting.h"
+#include "scene_statistics.h"
 #include "client/renderingengine.h"
 #include <ISceneManager.h>
 
@@ -197,6 +198,7 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 	static const u8 TEXTURE_FOG_COLOR = 52;
 	static const u8 TEXTURE_EMISSION_MASK = 53;
 	static const u8 TEXTURE_MSAA_EMISSION_MASK = 54;
+	static const u8 TEXTURE_SCENE_STATISTICS = 55;
 
 	static const u8 TEXTURE_SCALE_DOWN = 10;
 	static const u8 TEXTURE_SCALE_UP = 20;
@@ -446,6 +448,23 @@ RenderStep *addPostProcessing(RenderPipeline *pipeline, RenderStep *previousStep
 		medium->setVoxelLighting(useVoxelWaterLighting());
 		medium->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_WATER_MEDIUM));
 		scene_source = TEXTURE_WATER_MEDIUM;
+	}
+	std::string statistics_path;
+	g_settings->getNoEx("benchmark_scene_log", statistics_path);
+	if (!statistics_path.empty()) {
+		if ((driver->getDriverType() == video::EDT_OPENGL || driver->getDriverType() == video::EDT_OPENGL3) &&
+				driver->queryTextureFormat(video::ECF_A32B32G32R32F)) {
+			buffer->setTexture(TEXTURE_SCENE_STATISTICS, core::dimension2du(1, 1),
+				"scene_statistics", video::ECF_A32B32G32R32F);
+			const auto statistics_id = client->getShaderSource()->getShaderRaw("scene_statistics");
+			auto reduce = pipeline->addStep<PostProcessingStep>(statistics_id, std::vector<u8>{scene_source});
+			reduce->setRenderSource(buffer);
+			reduce->setBilinearFilter(0, true);
+			reduce->setRenderTarget(pipeline->createOwned<TextureBufferOutput>(buffer, TEXTURE_SCENE_STATISTICS));
+			pipeline->addStep<SceneStatisticsStep>(buffer, TEXTURE_SCENE_STATISTICS, statistics_path);
+		} else {
+			errorstream << "Scene statistics: desktop OpenGL and RGBA32F targets required" << std::endl;
+		}
 	}
 	if (temporal) {
 		buffer->setTexture(TEXTURE_HISTORY, scale, "taa_history", video::ECF_A16B16G16R16F);

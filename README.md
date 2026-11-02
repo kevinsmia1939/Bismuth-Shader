@@ -29,9 +29,9 @@ The project follows these milestones:
 | Milestone | Intended result | Current status |
 | --- | --- | --- |
 | 1. Baseline and budget | Repeatable forest, sunset river, glowing cave and underwater scenes | Baseline recorded |
-| 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Tuning and validation in progress |
-| 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Tuning and validation in progress |
-| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implementation present; cost comparison pending |
+| 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Implemented and checked in the reference scenes |
+| 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Implemented and checked in the reference scenes |
+| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; lighting cost measured |
 | 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Foundation present; further tuning pending |
 | 6. Combined-image stability | Stable TAA, exposure and bloom during movement, animation, resizing and water transitions | Effects present; combined audit pending |
 | 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
@@ -43,8 +43,12 @@ precede the latest changes; the current renderer has not been re-benchmarked
 completely. See the [baseline report](doc/developing/graphics-baseline/README.md)
 for hardware, settings, frame times and raw data.
 
-Development on milestones 2–4 is currently paused. The final native VoxeLibre
-replay and 1080p lighting-cost comparison still need to finish. The
+The [milestones 2–4 results](doc/developing/graphics-milestones-2-4-results/README.md)
+include the native replay, brightness/lamp-response checks and repeated 1080p
+timings. Balanced averages were about 42 FPS in the forest, 41 FPS at the river,
+66 FPS in the cave and 51 FPS underwater. The measured local-light path costs
+3.1–4.9 ms per frame; the complete-renderer performance target remains open for
+milestone 7. The
 [milestone notes](doc/developing/graphics-milestones-2-4.md) record the changes,
 acceptance criteria and verification checkpoint.
 

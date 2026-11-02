@@ -1,0 +1,3 @@
+MESA-EGL: warning: Not allowed to force software rendering when API explicitly selects a hardware device.
+Renderer: llvmpipe (LLVM 23.1.3, 256 bits); GLSL 120
+PASS: volumetric fog GLSL; analytic transmission, opaque/colored occlusion, shadow guard, zero density, underwater bypass, sky, distance/height, sample counts and camera offset. No images captured.

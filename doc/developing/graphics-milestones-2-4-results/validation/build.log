@@ -1,0 +1,41 @@
+[0/1] Re-running CMake...
+-- *** Will build version 5.19.0-dev ***
+-- BUILD_CLIENT: TRUE
+-- BUILD_SERVER: FALSE
+-- BUILD_UNITTESTS: TRUE
+-- BUILD_BENCHMARKS: FALSE
+-- BUILD_DOCUMENTATION: TRUE
+-- RUN_IN_PLACE: TRUE
+-- OpenGL (legacy): ON
+-- OpenGL 3: ON
+-- OpenGL ES 2: OFF
+-- Found SDL2: SDL2::SDL2main;SDL2::SDL2
+-- Performing Test CHECK_SDL_VERSION
+-- Performing Test CHECK_SDL_VERSION - Success
+-- LTO/IPO is not enabled
+-- Using GMP provided by system.
+-- Using bundled JsonCpp library.
+-- Could NOT find LuaJIT (missing: LUA_LIBRARY LUA_INCLUDE_DIR) 
+-- LuaJIT not found, using bundled Lua.
+-- cURL support enabled.
+-- GetText enabled; locales found: ar;az;bar;be;bg;br;ca;cs;cy;da;de;dv;el;eo;es;es_US;et;eu;fa;fi;fil;fr;ga;gd;gl;he;hi;hu;id;io;isv;it;ja;jbo;jv;ka;kab;kk;kmr;kn;ko;kv;kw;ky;lt;lv;lzh;mi;mn;mr;ms;ms_Arab;my;nb;nl;nn;oc;pl;pt;pt_BR;ro;ru;sk;sl;sr;sr_Cyrl;sr_Latn;sv;sw;ta;th;tok;tr;tt;uk;uz;vi;zh_CN;zh_TW
+-- Could NOT find PostgreSQL (missing: PostgreSQL_LIBRARY PostgreSQL_INCLUDE_DIR) 
+-- PostgreSQL not found!
+-- LevelDB not found!
+-- Redis not found!
+-- Prometheus client disabled.
+-- SpatialIndex not found!
+-- OpenSSL's libcrypto SHA enabled.
+-- Looking for ZSTD_initCStream
+-- Looking for ZSTD_initCStream - found
+-- Locale blacklist applied; Locales used: az;bar;be;bg;br;ca;cs;cy;da;de;el;eo;es;es_US;et;eu;fa;fi;fil;fr;ga;gd;gl;hu;id;io;isv;it;ja;jbo;jv;ka;kab;kk;kmr;ko;kv;kw;ky;lt;lv;lzh;mi;mn;mr;ms;nb;nl;nn;oc;pl;pt;pt_BR;ro;ru;sk;sl;sr;sr_Cyrl;sr_Latn;sv;sw;ta;tok;tr;tt;uk;uz;vi;zh_CN;zh_TW
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+-- Configuring done (1.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/kevin/Dropbox/Desktop/software/luanti/build
+[1/6] cd /home/kevin/Dropbox/Desktop/software/luanti/src && /usr/bin/cmake -D GENERATE_VERSION_SOURCE_DIR=/home/kevin/Dropbox/Desktop/software/luanti/src -D GENERATE_VERSION_BINARY_DIR=/home/kevin/Dropbox/Desktop/software/luanti/build/src -D VERSION_STRING=5.19.0-dev -D DEVELOPMENT_BUILD=TRUE -P /home/kevin/Dropbox/Desktop/software/luanti/cmake/Modules/GenerateVersion.cmake
+-- *** Detected Git version 5.19.0-dev-b8ad5a0fb-dirty ***
+[2/6] Building CXX object src/CMakeFiles/luanti.dir/client/render/scene_statistics.cpp.o
+[3/6] Building CXX object src/CMakeFiles/luanti.dir/client/render/secondstage.cpp.o
+[4/6] Linking CXX executable /home/kevin/Dropbox/Desktop/software/luanti/bin/luanti
+[5/6] cd /home/kevin/Dropbox/Desktop/software/luanti/src && /usr/bin/cmake -E create_symlink luanti /home/kevin/Dropbox/Desktop/software/luanti/bin/minetest

@@ -1,0 +1,9 @@
+{
+  "binary_sha256": "75300219fc38ef8d66ca53e2ae1b4ed62df7c6b3767ac4e859e8d01784e8b861",
+  "gpu": "NVIDIA GeForce GTX 1650 Ti, 580.196.07, 55, 300 MHz, 405 MHz, 3.83 W",
+  "config_sha256": "f873c8f3b8b6f59e2c5a1a997c13050c6dff817ad460064c8d66989c97124836",
+  "source_map_sha256": "b090a98dc91421cfa766cdfe16c00b3aa2307f81500c7dc528775baccc426ca6",
+  "fixture_sha256": "b16a8ae7d6a4aed7337d0af8fdd3688d2db014df3539e4c084bbbc708744d17e",
+  "shader_sha256": "e07999607d767e39afab1444fec455c0ef6bef277a06137ccae19fadb1f873cf",
+  "saved_config_sha256": "b39225f6af3b2c292519c0f3e2b46c6e573861c331614162cea40da2c4b9cda2"
+}

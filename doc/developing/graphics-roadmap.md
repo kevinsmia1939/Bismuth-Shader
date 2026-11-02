@@ -1,10 +1,12 @@
 # Graphics goal and remaining work
 
 This is the historical feature inventory from the earlier open-ended graphics
-goal. The current target is a semi-realistic preset; the active bounded work is
-[Milestones 2–4](graphics-milestones-2-4.md), following the
-[Milestone 1 baseline](graphics-baseline/README.md). Items in the remaining-work
-column below are not additional requirements for those bounded milestones.
+goal. The current target is a semi-realistic preset.
+[Milestones 2–4](graphics-milestones-2-4.md) are implemented and checked in the
+reference scenes, following the [Milestone 1 baseline](graphics-baseline/README.md).
+Material response, combined-image stability and final preset delivery remain
+milestones 5–7. Items in the remaining-work column below are not additional
+requirements for the completed bounded milestones.
 
 The requested goal covers soft sunlight shadows, global illumination, advanced
 water, volumetric atmosphere, material shading, colored lighting, temporal

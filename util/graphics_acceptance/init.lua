@@ -25,7 +25,8 @@ end
 local function apply(stage,t)
  local s=scenes[stage.scene]
  player:set_pos(position(stage,t))
- player:set_look_horizontal(s.yaw+(stage.mode=="walk" and 0.2*math.sin(t*math.pi*2) or 0))
+ -- Cross the shadow-frustum's 15-degree recapture threshold in both directions.
+ player:set_look_horizontal(s.yaw+(stage.mode=="walk" and 0.4*math.sin(t*math.pi*2) or 0))
  player:set_look_vertical(s.pitch)
  core.set_timeofday(stage.mode=="sunset" and 0.70+t*0.16 or s.timeofday)
 end

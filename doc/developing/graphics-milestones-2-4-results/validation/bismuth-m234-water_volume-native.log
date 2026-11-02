@@ -1,0 +1,9 @@
+PASS: loaded-water traversal, boundaries, turbidity, flow, origin and flat focusing; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: displaced source triangles, first exits, diagonal crossing, lower cells, amplitude bounds and CPU/GPU anchors; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: sloped/static/waving flow triangles, diagonal crossings, first exits, lower cells and solid occlusion; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual shoreline thickness and occupancy through maximum wave amplitude, minimum wavelength and far origins; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: 144 production CPU/GPU animated wave and triangle samples, negative/far origins and maximum amplitude; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual node refraction/reflection/surface-buffer water normals; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: refracted photon focusing/divergence, bounds, occlusion and native-light guards; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual underwater pass, Beer-Lambert/RGB scatter, rear exits, alpha and bypasses; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual water reflection pass, dielectric Fresnel, critical angle, TIR and liquid fallback; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

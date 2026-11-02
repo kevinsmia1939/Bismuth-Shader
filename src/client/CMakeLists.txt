@@ -36,6 +36,7 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/sidebyside.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/stereo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/secondstage.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/scene_statistics.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/taa.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/camera_effects.cpp

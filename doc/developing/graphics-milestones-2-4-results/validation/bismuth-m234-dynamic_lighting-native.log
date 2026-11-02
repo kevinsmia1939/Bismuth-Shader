@@ -1,0 +1,6 @@
+PASS: per-frame positions/colors/count with unchanged atlas, bounded light array; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: opaque/unknown/outside guards, receiver-cell exception and independent blocker; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual colored voxel transmission, thickness, slanted/partial paths and zero channels; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: actual atlas/material composition, origin rebase, strength and absent-binding guards; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: original 13-column atlas fallback without frame-direct shader feature; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2
+PASS: live wall/filter/removal updates, unchanged radiance and stale-probe independence; NVIDIA GeForce GTX 1650 Ti/PCIe/SSE2

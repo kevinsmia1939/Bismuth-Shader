@@ -1,0 +1,312 @@
+[
+  {
+    "event": "end",
+    "id": "forest_movement",
+    "index": 1,
+    "pos": {
+      "x": -256,
+      "y": 16,
+      "z": -256
+    },
+    "time_us": 106484187921,
+    "timeofday": 0.5,
+    "begin_us": 106478167741,
+    "prepare_us": 106469516886,
+    "sources": 2,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 170,
+    "sampled_seconds": 5.989201970470001,
+    "mean_rgb": [
+      0.056373464934468084,
+      0.09603499806021278,
+      0.12017569865070922
+    ],
+    "mean_luminance": 0.08934591470031329,
+    "max_frame_luminance_change": 0.02114681851819801,
+    "peak_sampled_luminance": 0.7349016666
+  },
+  {
+    "event": "end",
+    "id": "sunset_transition",
+    "index": 2,
+    "pos": {
+      "x": -256,
+      "y": 16,
+      "z": -256
+    },
+    "time_us": 106492517552,
+    "timeofday": 0.8600000143051147,
+    "begin_us": 106486486311,
+    "prepare_us": 106484188320,
+    "sources": 2,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 180,
+    "sampled_seconds": 6.00571597012,
+    "mean_rgb": [
+      0.02698305719358278,
+      0.03976046264217219,
+      0.05593216248045695
+    ],
+    "mean_luminance": 0.038211582972126235,
+    "max_frame_luminance_change": 0.008389890926065999,
+    "peak_sampled_luminance": 0.7008926272
+  },
+  {
+    "event": "end",
+    "id": "river_reflections",
+    "index": 3,
+    "pos": {
+      "x": -343,
+      "y": 6,
+      "z": 771
+    },
+    "time_us": 106506799301,
+    "timeofday": 0.7799999713897705,
+    "begin_us": 106500782295,
+    "prepare_us": 106492671501,
+    "sources": 0,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 179,
+    "sampled_seconds": 5.97167696806,
+    "mean_rgb": [
+      0.038469189420198675,
+      0.032493889541920534,
+      0.03766552906569536
+    ],
+    "mean_luminance": 0.034137630669659004,
+    "max_frame_luminance_change": 0.0025318294638819946,
+    "peak_sampled_luminance": 0.2145688534
+  },
+  {
+    "event": "end",
+    "id": "water_entry",
+    "index": 4,
+    "pos": {
+      "x": -343,
+      "y": -3,
+      "z": 781
+    },
+    "time_us": 106514828861,
+    "timeofday": 0.7799999713897705,
+    "begin_us": 106508814624,
+    "prepare_us": 106506801411,
+    "sources": 0,
+    "held": 0,
+    "warm": false,
+    "wet": true,
+    "frames": 179,
+    "sampled_seconds": 5.97079996022,
+    "mean_rgb": [
+      0.016038563667646666,
+      0.018369363061800002,
+      0.02827406438686667
+    ],
+    "mean_luminance": 0.018588954546272813,
+    "max_frame_luminance_change": 0.004589971703787998,
+    "peak_sampled_luminance": 0.1683114618
+  },
+  {
+    "event": "end",
+    "id": "underwater_lamp",
+    "index": 5,
+    "pos": {
+      "x": -343,
+      "y": -3,
+      "z": 781
+    },
+    "time_us": 106522779098,
+    "timeofday": 0.5,
+    "begin_us": 106516772580,
+    "prepare_us": 106514852597,
+    "sources": 1,
+    "held": 1,
+    "warm": true,
+    "wet": true,
+    "frames": 179,
+    "sampled_seconds": 5.979099955440001,
+    "mean_rgb": [
+      0.04546628296373333,
+      0.03693104741493333,
+      0.04470292404286667
+    ],
+    "mean_luminance": 0.03930676798514499,
+    "max_frame_luminance_change": 0.008265381906807999,
+    "peak_sampled_luminance": 0.2520218194
+  },
+  {
+    "event": "end",
+    "id": "water_exit",
+    "index": 6,
+    "pos": {
+      "x": -343,
+      "y": 4,
+      "z": 781
+    },
+    "time_us": 106530842686,
+    "timeofday": 0.7799999713897705,
+    "begin_us": 106524818073,
+    "prepare_us": 106522838442,
+    "sources": 0,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 180,
+    "sampled_seconds": 6.00350796813,
+    "mean_rgb": [
+      0.018030128305013333,
+      0.019401643673266668,
+      0.0281663352438
+    ],
+    "mean_luminance": 0.019742870237368513,
+    "max_frame_luminance_change": 0.006711593563045999,
+    "peak_sampled_luminance": 0.1683114618
+  },
+  {
+    "event": "end",
+    "id": "cave_dark",
+    "index": 7,
+    "pos": {
+      "x": -245,
+      "y": -23,
+      "z": -252
+    },
+    "time_us": 106538786559,
+    "timeofday": 0,
+    "begin_us": 106532779887,
+    "prepare_us": 106531002283,
+    "sources": 1,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 179,
+    "sampled_seconds": 5.97208095718,
+    "mean_rgb": [
+      3.263996592646667e-06,
+      5.614537528e-06,
+      1.2423314225666667e-05
+    ],
+    "mean_luminance": 5.606406202715415e-06,
+    "max_frame_luminance_change": 7.314210035692006e-07,
+    "peak_sampled_luminance": 3.205263783e-05
+  },
+  {
+    "event": "end",
+    "id": "cave_placed",
+    "index": 8,
+    "pos": {
+      "x": -245,
+      "y": -23,
+      "z": -252
+    },
+    "time_us": 106546835421,
+    "timeofday": 0,
+    "begin_us": 106540832077,
+    "prepare_us": 106538786978,
+    "sources": 2,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 179,
+    "sampled_seconds": 5.97211797553,
+    "mean_rgb": [
+      0.026864807879933335,
+      0.012175964048066666,
+      0.004286984316966666
+    ],
+    "mean_luminance": 0.014729227910136101,
+    "max_frame_luminance_change": 0.0006898680434978006,
+    "peak_sampled_luminance": 0.4466441572
+  },
+  {
+    "event": "end",
+    "id": "cave_removed",
+    "index": 9,
+    "pos": {
+      "x": -245,
+      "y": -23,
+      "z": -252
+    },
+    "time_us": 106554796753,
+    "timeofday": 0,
+    "begin_us": 106548773511,
+    "prepare_us": 106546836061,
+    "sources": 1,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 179,
+    "sampled_seconds": 5.99465098615,
+    "mean_rgb": [
+      3.2272343333066667e-06,
+      5.424512834613333e-06,
+      1.2345209476466666e-05
+    ],
+    "mean_luminance": 5.457045722777346e-06,
+    "max_frame_luminance_change": 1.649770842300012e-08,
+    "peak_sampled_luminance": 2.703922837e-05,
+    "clear_latency_ms": 289.152
+  },
+  {
+    "event": "end",
+    "id": "held_movement",
+    "index": 10,
+    "pos": {
+      "x": -243.5,
+      "y": -23,
+      "z": -252
+    },
+    "time_us": 106562874167,
+    "timeofday": 0,
+    "begin_us": 106556854810,
+    "prepare_us": 106554797163,
+    "sources": 2,
+    "held": 1,
+    "warm": true,
+    "wet": false,
+    "frames": 179,
+    "sampled_seconds": 5.9719299786199995,
+    "mean_rgb": [
+      0.014391336188807948,
+      0.006182072252423841,
+      0.003424798011966887
+    ],
+    "mean_luminance": 0.00772828656513811,
+    "max_frame_luminance_change": 0.0007196253520626002,
+    "peak_sampled_luminance": 0.06478207558
+  },
+  {
+    "event": "end",
+    "id": "held_removed",
+    "index": 11,
+    "pos": {
+      "x": -245,
+      "y": -23,
+      "z": -252
+    },
+    "time_us": 106570941961,
+    "timeofday": 0,
+    "begin_us": 106564918656,
+    "prepare_us": 106562977558,
+    "sources": 1,
+    "held": 0,
+    "warm": false,
+    "wet": false,
+    "frames": 180,
+    "sampled_seconds": 6.007076971240001,
+    "mean_rgb": [
+      3.2270831332384107e-06,
+      5.424210909887417e-06,
+      1.2344972620331126e-05
+    ],
+    "mean_luminance": 5.456780540065874e-06,
+    "max_frame_luminance_change": 1.6824766558400374e-08,
+    "peak_sampled_luminance": 2.703922837e-05,
+    "clear_latency_ms": 185.571
+  }
+]

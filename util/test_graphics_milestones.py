@@ -13,8 +13,8 @@ import time
 from benchmark_graphics import ROOT, COMMON, digest, gpu_state
 
 
-def audit(log, frames):
-    current=None;ready={};begins={};ends=[]
+def audit(log, frames, statistics=None):
+    current=None;ready={};begins={};prepared={};ends=[]
     sources=None;held=None;warm=False;wet=False
     for line in log.splitlines():
         match=re.search(r'Voxel GI: sources=(\d+)',line)
@@ -29,12 +29,14 @@ def audit(log, frames):
             ready[current]=ready.get(current,0)+1
         if 'Graphics acceptance: {' not in line: continue
         event=json.loads(line.split('Graphics acceptance: ',1)[1])
-        if event['event']=='prepare': current=event['id'];ready[current]=0
+        if event['event']=='prepare':
+            current=event['id'];ready[current]=0;prepared[current]=event['time_us']
         if event['event']=='begin':
             assert ready.get(current,0)>=2, f'Client did not finish warmup frames for {current}'
             begins[current]=event['time_us']
         if event['event']=='end':
-            event.update({'begin_us':begins[event['id']],'sources':sources,'held':held,'warm':warm,'wet':wet})
+            event.update({'begin_us':begins[event['id']],'prepare_us':prepared[event['id']],
+                          'sources':sources,'held':held,'warm':warm,'wet':wet})
             ends.append(event)
     assert '"event":"complete"' in log.replace(' ',''), 'Fixture did not complete'
     by_id={e['id']:e for e in ends}
@@ -63,6 +65,40 @@ def audit(log, frames):
         assert required in log, required
     for error in ('ERROR[','GL_INVALID','failed to generate shaders'):
         assert error not in log, error
+    if statistics is not None:
+        with statistics.open() as file: probes=list(csv.DictReader(file))
+        for event in ends:
+            selected=[r for r in probes if event['begin_us']+1000000<=int(r['time_us'])<=event['time_us']]
+            assert len(selected)>=60, f'Missing scene brightness coverage for {event["id"]}'
+            channels=[[float(r[f'mean_{c}']) for c in 'rgb'] for r in selected]
+            luminance=[sum(v*w for v,w in zip(rgb,(0.2126,0.7152,0.0722))) for rgb in channels]
+            change=max(abs(a-b) for a,b in zip(luminance,luminance[1:]))
+            event.update({'mean_rgb':[sum(rgb[c] for rgb in channels)/len(channels) for c in range(3)],
+                          'mean_luminance':sum(luminance)/len(luminance),
+                          'max_frame_luminance_change':change,
+                          'peak_sampled_luminance':max(float(r['peak_luminance']) for r in selected)})
+            assert change<0.1, f'Abrupt composed-scene brightness change in {event["id"]}: {change}'
+        dark=by_id['cave_dark']['mean_luminance'];outdoors=by_id['forest_movement']['mean_luminance']
+        assert dark<outdoors*0.3, f'Cave must remain substantially darker than outdoors: {dark}, {outdoors}'
+        assert by_id['cave_placed']['mean_luminance']>dark+1e-5, 'Placed light did not brighten actual terrain'
+        assert by_id['held_movement']['mean_luminance']>dark+1e-5, 'Held light did not brighten actual terrain'
+        assert abs(by_id['cave_removed']['mean_luminance']-dark)<max(0.0001,dark*0.1), 'Removed placed light left visible radiance'
+        assert abs(by_id['held_removed']['mean_luminance']-dark)<max(0.0001,dark*0.1), 'Removed held light left visible radiance'
+        dark_rgb=by_id['cave_dark']['mean_rgb']
+        for stage in ('cave_placed','held_movement'):
+            delta=[a-b for a,b in zip(by_id[stage]['mean_rgb'],dark_rgb)]
+            assert delta[0]>delta[1]>delta[2]>0, f'Native warm lamp hue lost in composed cave scene: {stage}, {delta}'
+        for stage in ('cave_removed','held_removed'):
+            event=by_id[stage]
+            after=[r for r in probes if event['prepare_us']<=int(r['time_us'])<=event['time_us']]
+            dark_frames=0
+            for row in after:
+                light=sum(float(row[f'mean_{c}'])*w for c,w in zip('rgb',(0.2126,0.7152,0.0722)))
+                dark_frames=dark_frames+1 if light<=dark+0.0001 else 0
+                if dark_frames>=3:
+                    event['clear_latency_ms']=(int(row['time_us'])-event['prepare_us'])/1000
+                    break
+            assert event.get('clear_latency_ms',float('inf'))<1000, f'Lamp removal must clear actual radiance within one second: {stage}'
     return ends
 
 
@@ -93,7 +129,11 @@ atmosphere_density = 0.0015
 shadow_update_frames = 4
 benchmark_frame_log = {frames}
 benchmark_frame_progress = true
+benchmark_scene_log = {output/'scene.csv'}
 ''')
+    # The client can save additional settings/reformat this file at shutdown.
+    # Keep its exact launch input as well as the resulting saved configuration.
+    shutil.copy2(config,output/'launch.conf')
     metadata={'binary_sha256':digest(ROOT/'bin/luanti'),'gpu':gpu_state(),
               'config_sha256':digest(config),'source_map_sha256':before,
               'fixture_sha256':digest(ROOT/'util/graphics_acceptance/init.lua'),
@@ -128,7 +168,11 @@ benchmark_frame_progress = true
     assert process.returncode==0, f'Client exit {process.returncode}; inspect {log}'
     assert digest(source/'map.sqlite')==before, 'Original prepared world changed'
     assert digest(ROOT/'bin/luanti')==metadata['binary_sha256'], 'Binary changed during replay'
-    results=audit(log.read_text(),frames)
+    assert digest(output/'launch.conf')==metadata['config_sha256'], 'Launch settings changed during replay'
+    assert digest(ROOT/'util/graphics_acceptance/init.lua')==metadata['fixture_sha256'], 'Fixture changed during replay'
+    metadata['saved_config_sha256']=digest(config)
+    (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
+    results=audit(log.read_text(),frames,output/'scene.csv')
     (output/'results.json').write_text(json.dumps(results,indent=2)+'\n')
     shutil.rmtree(world)
     print(f'PASS: 11 native VoxeLibre transition stages; evidence in {output}',flush=True)

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "irrlichttypes.h"
+#include "texture_data.h"
 #include <SColor.h>
 #include <dimension2d.h>
 #include <string>
@@ -66,6 +67,10 @@ public:
 		return getTexture(image,id);
 	}
 	virtual bool hasNormalVariance(video::ITexture *texture) { return false; }
+	virtual video::ITexture *getMaterialTexture(const std::string &image, u32 *id = nullptr)
+	{
+		return getTexture(image, id);
+	}
 
 	/// @brief Generates texture string(s) into an array texture
 	/// @note Unlike the other getters this will always add a *new* texture.

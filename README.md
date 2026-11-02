@@ -5,7 +5,8 @@ by Minecraft shader packs. The focus is richer sunlight, atmosphere, water and
 colored lighting while keeping the block shapes and pixel textures readable.
 
 The work spans GLSL shaders, the client rendering pipeline and the bundled
-Irrlicht renderer. VoxeLibre is the main integration target. Ordinary game
+Irrlicht renderer. [Minetest Game](https://github.com/luanti-org/minetest_game) is
+the main integration target. Ordinary game
 textures should work well, with optional material maps providing more control.
 
 Rendering features already in the tree include:
@@ -17,7 +18,7 @@ Rendering features already in the tree include:
 - Colored light from placed glowing blocks and held lamps, with voxel visibility
   and local approximate diffuse bounce.
 - Optional normal and roughness/metallic maps, rough defaults for unmapped
-  textures, preserved emission and normal-map mip filtering.
+  textures, preserved emission and normal/roughness mip filtering.
 - TAA, SSAO, exposure, tone mapping and bloom. Motion blur and depth of field
   remain optional.
 
@@ -32,18 +33,18 @@ The project follows these milestones:
 | 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Implemented and checked in the reference scenes |
 | 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Implemented and checked in the reference scenes |
 | 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; lighting cost measured |
-| 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Foundation present; further tuning pending |
+| 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Implemented and checked in Minetest Game; material cost measured |
 | 6. Combined-image stability | Stable TAA, exposure and bloom during movement, animation, resizing and water transitions | Effects present; combined audit pending |
 | 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
 
 The performance target is **1080p at 60 FPS on a GTX 1650 Ti**, subject to
-profiling. The recorded Milestone 1 balanced baseline achieved about 41 FPS in
+profiling. The historical VoxeLibre Milestone 1 balanced baseline achieved about 41 FPS in
 the forest and river, 67 FPS in the cave and 47 FPS underwater. Those measurements
 precede the latest changes; the current renderer has not been re-benchmarked
 completely. See the [baseline report](doc/developing/graphics-baseline/README.md)
 for hardware, settings, frame times and raw data.
 
-The [milestones 2–4 results](doc/developing/graphics-milestones-2-4-results/README.md)
+The historical VoxeLibre [milestones 2–4 results](doc/developing/graphics-milestones-2-4-results/README.md)
 include the native replay, brightness/lamp-response checks and repeated 1080p
 timings. Balanced averages were about 42 FPS in the forest, 41 FPS at the river,
 66 FPS in the cave and 51 FPS underwater. The measured local-light path costs
@@ -51,6 +52,16 @@ timings. Balanced averages were about 42 FPS in the forest, 41 FPS at the river,
 milestone 7. The
 [milestone notes](doc/developing/graphics-milestones-2-4.md) record the changes,
 acceptance criteria and verification checkpoint.
+
+[Milestone 5](doc/developing/graphics-milestone-5.md) finishes material mip
+filtering and adds an optional
+[Minetest Game material pack](textures/bismuth-minetest-game/README.md) that keeps
+the existing color artwork. Its [results](doc/developing/graphics-milestone-5-results/README.md)
+include actual mip uploads, numeric shimmer checks, native terrain replay and
+repeated 1080p timings. Enabled averages are about 43 FPS in the forest, 41 FPS
+at the river, 34 FPS in the cave and 44 FPS underwater. These Minetest Game
+scenes differ from the historical VoxeLibre scenes. The 60 FPS preset target
+remains open for milestone 7.
 
 To try the renderer, install the dependencies from the existing
 [build documentation](doc/compiling/README.md), then build this checkout:
@@ -61,7 +72,7 @@ cmake --build build -j2
 ./bin/luanti --config misc/graphics-balanced.conf
 ```
 
-Install VoxeLibre separately through the content browser or your usual game
+Install Minetest Game separately through the content browser or your usual game
 installation method. The advanced pipeline targets desktop OpenGL; OpenGL 3 is
 the primary tested renderer. Games retain control of shadow and volumetric-light
 intensity through their lighting settings.

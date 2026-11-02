@@ -14,6 +14,7 @@
 #include <memory>
 #include "tile.h"
 #include "nodedef.h"
+#include "texture_data.h"
 
 namespace scene
 {
@@ -177,7 +178,8 @@ private:
 
 std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 		const std::string &image_name, const TileAnimationParams &animation,
-		int& result_frame_length_ms, bool mesh_filter = true, bool normal_map = false);
+		int& result_frame_length_ms, bool mesh_filter = true,
+		TextureData data = TextureData::COLOR);
 
 scene::SMesh *getExtrudedMesh(video::ITexture *texture,
 	video::ITexture *overlay_texture = nullptr);

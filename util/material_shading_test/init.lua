@@ -36,56 +36,60 @@ core.register_on_joinplayer(function(player)
    player:set_physics_override({gravity=0,speed=0});core.set_timeofday(0.32)
    player:set_lighting({shadows={intensity=0.65,direction={x=0.4,y=1,z=-0.5}},volumetric_light={strength=0.15}})
    core.log("action","Material integration: authored, companion and animated nodes placed")
-   local function begin_checks()
+   local stages = {{name="baseline", run=function() end}}
+   local function add(name, run) stages[#stages+1]={name=name,run=run} end
    if core.settings:get_bool("material_test_directional",false) then
-    core.after(1,function()
+    add("zero shadow strength",function()
      player:set_lighting({shadows={intensity=0,direction={x=0.4,y=1,z=-0.5}}})
-     core.log("action","Material directional integration: zero shadow strength")
     end)
-    core.after(2.5,function()
+    add("hidden sky lights",function()
      player:set_lighting({shadows={intensity=0,direction={x=0,y=0,z=0}}})
      player:set_sun({visible=false});player:set_moon({visible=false})
-     core.log("action","Material directional integration: hidden sky lights")
     end)
-    core.after(4,function()
+    add("visible sun",function()
      core.set_timeofday(0.5);player:set_sun({visible=true})
-     core.log("action","Material directional integration: visible sun")
     end)
-    core.after(6,function()
+    add("visible moon",function()
      core.set_timeofday(0);player:set_moon({visible=true})
-     core.log("action","Material directional integration: visible moon")
     end)
-    core.after(8,function()
+    add("custom light restored",function()
      player:set_lighting({shadows={intensity=0.65,direction={x=0.4,y=1,z=-0.5}}})
-     core.log("action","Material directional integration: custom light restored")
     end)
    end
    if core.settings:get_bool("material_test_dynamic_light",false) then
-    core.after(2,function()
+    add("held light",function()
      assert(player:set_wielded_item("material_shading_test:emissive"))
      core.log("action","Material integration: held light")
     end)
-    core.after(7,function()
+    add("removed held light",function()
      assert(player:set_wielded_item(""))
      core.log("action","Material integration: removed held light")
     end)
    end
-   core.after(5,function()
-    -- Swap to an unmapped material in the same mesh area; stale map bindings must clear.
+   add("unmapped replacement",function()
+    -- Swapping in the same mesh must clear stale material-map bindings.
     for y=1,3 do core.set_node({x=-1,y=y,z=4},{name="basenodes:stone"}) end
     player:set_fov(70,false,0.2)
    end)
-   core.after(10,function() core.request_shutdown("Material integration done",false,0) end)
-   end
-   local function wait_client()
-    if core.settings:get_bool("material_test_wait_client",false) then
-     local file=io.open(core.get_worldpath().."/material-client-ready","r")
-     if not file then core.after(0.1,wait_client);return end
-     file:close()
+   local index=0
+   local function advance()
+    index=index+1
+    local stage=stages[index]
+    if not stage then core.request_shutdown("Material integration done",false,0);return end
+    stage.run()
+    core.log("action","Material directional integration: "..stage.name)
+    core.log("action","Material stage: "..core.write_json({index=index,name=stage.name,time_us=core.get_us_time()},false))
+    local function wait_frames()
+     if core.settings:get_bool("material_test_wait_client",false) then
+      local file=io.open(core.get_worldpath().."/material-stage-"..index.."-ready","r")
+      if not file then core.after(0.1,wait_frames);return end
+      file:close()
+     end
+     advance()
     end
-    core.after(1,begin_checks)
+    core.after(2,wait_frames)
    end
-   wait_client()
+   advance()
   end)
  end)
 end)

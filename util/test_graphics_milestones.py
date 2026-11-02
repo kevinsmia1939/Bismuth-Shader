@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
-"""Replay milestones 2–4 on a copied, prepared native VoxeLibre world. No images/input."""
+"""Replay native sunlight, water and material integration scenes. No images/input."""
 # SPDX-License-Identifier: LGPL-2.1-or-later
 import argparse
 import csv
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import time
-from benchmark_graphics import ROOT, COMMON, digest, gpu_state
+from benchmark_graphics import ROOT, COMMON, digest, gpu_state, world_game, copy_game_adapter
 
 
 def audit(log, frames, statistics=None):
     current=None;ready={};begins={};prepared={};ends=[]
-    sources=None;held=None;warm=False;wet=False
+    sources=None;source_rgb=None;held=None;warm=False;wet=False
     for line in log.splitlines():
         match=re.search(r'Voxel GI: sources=(\d+)',line)
         if match: sources=int(match[1])
+        match=re.search(r'Voxel GI: sources=\d+ emission=([\d.e+-]+),([\d.e+-]+),([\d.e+-]+)',line)
+        if match: source_rgb=list(map(float,match.groups()))
         match=re.search(r'Voxel dynamic direct: sources=\d+ held=(\d+) emission=([\d.e+-]+),([\d.e+-]+),([\d.e+-]+)',line)
         if match:
             held=int(match[1]);r,g,b=map(float,match.groups()[1:]);warm=held>0 and r>g>b>0
@@ -36,7 +39,7 @@ def audit(log, frames, statistics=None):
             begins[current]=event['time_us']
         if event['event']=='end':
             event.update({'begin_us':begins[event['id']],'prepare_us':prepared[event['id']],
-                          'sources':sources,'held':held,'warm':warm,'wet':wet})
+                          'sources':sources,'emission_rgb':source_rgb,'held':held,'warm':warm,'wet':wet})
             ends.append(event)
     assert '"event":"complete"' in log.replace(' ',''), 'Fixture did not complete'
     by_id={e['id']:e for e in ends}
@@ -87,7 +90,17 @@ def audit(log, frames, statistics=None):
         dark_rgb=by_id['cave_dark']['mean_rgb']
         for stage in ('cave_placed','held_movement'):
             delta=[a-b for a,b in zip(by_id[stage]['mean_rgb'],dark_rgb)]
-            assert delta[0]>delta[1]>delta[2]>0, f'Native warm lamp hue lost in composed cave scene: {stage}, {delta}'
+            if stage=='held_movement':
+                assert delta[0]>delta[1]>delta[2]>0, f'Native warm torch hue lost: {delta}'
+            else:
+                # Mese lamps are yellow-green; VoxeLibre glowstone is orange.
+                # Compare with the actual emitted packet rather than imposing
+                # the previous game's R>G>B ordering on every placed lamp.
+                source_delta=[a-b for a,b in zip(by_id[stage]['emission_rgb'],by_id['cave_dark']['emission_rgb'])]
+                cosine=sum(a*b for a,b in zip(delta,source_delta))/max(
+                    math.sqrt(sum(v*v for v in delta)*sum(v*v for v in source_delta)),1e-12)
+                assert min(delta)>0 and cosine>0.95, f'Placed lamp color disagrees with native emission: {delta}, {source_delta}'
+                by_id[stage]['emission_color_cosine']=cosine
         for stage in ('cave_removed','held_removed'):
             event=by_id[stage]
             after=[r for r in probes if event['prepare_us']<=int(r['time_us'])<=event['time_us']]
@@ -105,13 +118,15 @@ def audit(log, frames, statistics=None):
 def run(args):
     output=args.output.resolve();output.mkdir(parents=True,exist_ok=False)
     source=args.world.resolve();before=digest(source/'map.sqlite')
+    game=world_game(source)
     assert (source/'graphics-scenes.json').is_file(), 'Use the frozen prepared world from benchmark_graphics.py prepare'
     world=output/'world'
     shutil.copytree(source,world,ignore=shutil.ignore_patterns('worldmods','graphics-client-ready','graphics-phase-*-ready'))
     (world/'worldmods').mkdir()
     shutil.copytree(ROOT/'util/graphics_acceptance',world/'worldmods/graphics_acceptance')
+    copy_game_adapter(world/'worldmods')
     settings=[s for s in (world/'world.mt').read_text().splitlines() if not s.startswith(('load_mod_','gameid'))]
-    (world/'world.mt').write_text('\n'.join(settings)+'\ngameid = voxelibre\nload_mod_graphics_acceptance = true\n')
+    (world/'world.mt').write_text('\n'.join(settings)+f'\ngameid = {game}\nload_mod_graphics_acceptance = true\nload_mod_graphics_test_game = true\n')
     shutil.copy2(source/'graphics-scenes.json',output/'scenes.json')
     config=output/'client.conf';frames=output/'frames.csv';log=output/'client.log'
     config.write_text((ROOT/'misc/graphics-balanced.conf').read_text()+COMMON+f'''
@@ -131,17 +146,24 @@ benchmark_frame_log = {frames}
 benchmark_frame_progress = true
 benchmark_scene_log = {output/'scene.csv'}
 ''')
+    if args.texture_pack:
+        pack=args.texture_pack.resolve()
+        assert pack.is_dir(), 'Texture-pack directory is missing'
+        with config.open('a') as file: file.write(f'texture_path = {pack}\n')
     # The client can save additional settings/reformat this file at shutdown.
     # Keep its exact launch input as well as the resulting saved configuration.
     shutil.copy2(config,output/'launch.conf')
-    metadata={'binary_sha256':digest(ROOT/'bin/luanti'),'gpu':gpu_state(),
+    metadata={'binary_sha256':digest(ROOT/'bin/luanti'),'gpu':gpu_state(),'game':game,
+              'game_adapter_sha256':digest(ROOT/'util/graphics_test_game/init.lua'),
               'config_sha256':digest(config),'source_map_sha256':before,
               'fixture_sha256':digest(ROOT/'util/graphics_acceptance/init.lua'),
               'shader_sha256':hashlib.sha256(b''.join(p.read_bytes() for p in sorted((ROOT/'client/shaders').rglob('*.glsl')))).hexdigest()}
+    if args.texture_pack:
+        metadata['texture_pack_sha256']={p.name:digest(p) for p in sorted(pack.iterdir()) if p.is_file()}
     (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
     start=time.monotonic();phase=None;prepared_at=0;progress=0;offset=0
     command=[str(ROOT/'bin/luanti'),'--config',str(config),'--go','--world',str(world),
-             '--gameid','voxelibre','--name','GraphicsAcceptance','--info']
+             '--gameid',game,'--name','GraphicsAcceptance','--info']
     with log.open('w') as file:
         process=subprocess.Popen(command,stdout=file,stderr=subprocess.STDOUT)
         try:
@@ -170,12 +192,21 @@ benchmark_scene_log = {output/'scene.csv'}
     assert digest(ROOT/'bin/luanti')==metadata['binary_sha256'], 'Binary changed during replay'
     assert digest(output/'launch.conf')==metadata['config_sha256'], 'Launch settings changed during replay'
     assert digest(ROOT/'util/graphics_acceptance/init.lua')==metadata['fixture_sha256'], 'Fixture changed during replay'
+    assert digest(ROOT/'util/graphics_test_game/init.lua')==metadata['game_adapter_sha256'], 'Game adapter changed during replay'
+    if args.texture_pack:
+        assert metadata['texture_pack_sha256']=={p.name:digest(p) for p in sorted(pack.iterdir()) if p.is_file()}, 'Material pack changed during replay'
     metadata['saved_config_sha256']=digest(config)
     (output/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
     results=audit(log.read_text(),frames,output/'scene.csv')
+    if args.texture_pack:
+        text=log.read_text()
+        assert 'Material maps: normal=0 ORM=1' in text, 'Native ORM companions never bound'
+        assert 'Material ORM mipmaps: default_stone_orm.png' in text, 'Native stone material not prepared'
+        # Several native assets use _normal for color variants. They are not maps.
+        assert 'Material normal mipmaps:' not in text, 'Unexpected normal map from server color media'
     (output/'results.json').write_text(json.dumps(results,indent=2)+'\n')
     shutil.rmtree(world)
-    print(f'PASS: 11 native VoxeLibre transition stages; evidence in {output}',flush=True)
+    print(f'PASS: 11 native {game} transition stages; evidence in {output}',flush=True)
 
 
 if __name__=='__main__':
@@ -183,4 +214,5 @@ if __name__=='__main__':
     parser.add_argument('world',type=Path)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--timeout',type=float,default=1200)
+    parser.add_argument('--texture-pack',type=Path,help='Optional ORM-only pack for native material compatibility checks')
     run(parser.parse_args())

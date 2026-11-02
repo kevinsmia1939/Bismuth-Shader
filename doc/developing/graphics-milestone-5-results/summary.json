@@ -1,0 +1,604 @@
+{
+  "timings": [
+    {
+      "scene": "forest",
+      "enabled": {
+        "frames": 1041,
+        "seconds": 23.96235600671,
+        "fps": 43.443140553812675,
+        "mean_ms": 23.01859366638809,
+        "p95_ms_by_run": [
+          27.331500310000003,
+          25.9879503405
+        ]
+      },
+      "disabled": {
+        "frames": 1031,
+        "seconds": 23.97447300334,
+        "fps": 43.004073535062325,
+        "mean_ms": 23.25361106046557,
+        "p95_ms_by_run": [
+          27.287850157,
+          26.98010076
+        ]
+      },
+      "added_mean_ms": -0.2350173940774809
+    },
+    {
+      "scene": "sunset_river",
+      "enabled": {
+        "frames": 982,
+        "seconds": 23.95933299696,
+        "fps": 40.9861159375596,
+        "mean_ms": 24.39850610688391,
+        "p95_ms_by_run": [
+          28.905200588,
+          28.381400182
+        ]
+      },
+      "disabled": {
+        "frames": 1075,
+        "seconds": 23.99101002695,
+        "fps": 44.80845111533079,
+        "mean_ms": 22.31721862972093,
+        "p95_ms_by_run": [
+          26.1049997075,
+          25.921799614
+        ]
+      },
+      "added_mean_ms": 2.081287477162981
+    },
+    {
+      "scene": "glowing_cave",
+      "enabled": {
+        "frames": 813,
+        "seconds": 23.97992196501,
+        "fps": 33.903363037889726,
+        "mean_ms": 29.495598972952028,
+        "p95_ms_by_run": [
+          31.315648555499997,
+          35.22200137
+        ]
+      },
+      "disabled": {
+        "frames": 919,
+        "seconds": 23.97678501339,
+        "fps": 38.32874171773981,
+        "mean_ms": 26.09008162501632,
+        "p95_ms_by_run": [
+          29.624150039499998,
+          29.452599582
+        ]
+      },
+      "added_mean_ms": 3.4055173479357066
+    },
+    {
+      "scene": "underwater",
+      "enabled": {
+        "frames": 1064,
+        "seconds": 23.96426099169,
+        "fps": 44.39944967921019,
+        "mean_ms": 22.522801683919173,
+        "p95_ms_by_run": [
+          28.473899325999998,
+          26.201400164
+        ]
+      },
+      "disabled": {
+        "frames": 1151,
+        "seconds": 23.965465996280003,
+        "fps": 48.02744082583923,
+        "mean_ms": 20.821430057584713,
+        "p95_ms_by_run": [
+          23.932900649999997,
+          24.720800570999998
+        ]
+      },
+      "added_mean_ms": 1.7013716263344598
+    }
+  ],
+  "native": [
+    {
+      "event": "end",
+      "id": "forest_movement",
+      "index": 1,
+      "pos": {
+        "x": -1.2246468525851679e-16,
+        "y": 12,
+        "z": 0
+      },
+      "time_us": 3218648984,
+      "timeofday": 0.5,
+      "begin_us": 3212645285,
+      "prepare_us": 3206242824,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 179,
+      "sampled_seconds": 5.968250952750001,
+      "mean_rgb": [
+        0.043763495013466665,
+        0.033189798729933336,
+        0.027212404273066662
+      ],
+      "mean_luminance": 0.035006198680026746,
+      "max_frame_luminance_change": 0.003836241213187992,
+      "peak_sampled_luminance": 0.2288453728
+    },
+    {
+      "event": "end",
+      "id": "sunset_transition",
+      "index": 2,
+      "pos": {
+        "x": 0,
+        "y": 12,
+        "z": 0
+      },
+      "time_us": 3226710935,
+      "timeofday": 0.8600000143051147,
+      "begin_us": 3220683180,
+      "prepare_us": 3218649335,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 180,
+      "sampled_seconds": 6.00202196105,
+      "mean_rgb": [
+        0.016595447301779472,
+        0.012988681587470198,
+        0.012513744483675497
+      ],
+      "mean_luminance": 0.013721189519438372,
+      "max_frame_luminance_change": 0.0020513804677639996,
+      "peak_sampled_luminance": 0.1970246732
+    },
+    {
+      "event": "end",
+      "id": "river_reflections",
+      "index": 3,
+      "pos": {
+        "x": -50,
+        "y": 6,
+        "z": 349
+      },
+      "time_us": 3235029517,
+      "timeofday": 0.7799999713897705,
+      "begin_us": 3229016479,
+      "prepare_us": 3226869739,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 179,
+      "sampled_seconds": 5.97596393142,
+      "mean_rgb": [
+        0.023648430581066665,
+        0.04763860933453334,
+        0.08043451815853334
+      ],
+      "mean_luminance": 0.04490616194863912,
+      "max_frame_luminance_change": 0.002618691730490008,
+      "peak_sampled_luminance": 0.184291631
+    },
+    {
+      "event": "end",
+      "id": "water_entry",
+      "index": 4,
+      "pos": {
+        "x": -50,
+        "y": -3,
+        "z": 359
+      },
+      "time_us": 3243079733,
+      "timeofday": 0.7799999713897705,
+      "begin_us": 3237072369,
+      "prepare_us": 3235033618,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": true,
+      "frames": 179,
+      "sampled_seconds": 5.9681209251,
+      "mean_rgb": [
+        0.01525094373774,
+        0.04167367075866667,
+        0.07636737207593333
+      ],
+      "mean_luminance": 0.03856108422912431,
+      "max_frame_luminance_change": 0.004321764991061995,
+      "peak_sampled_luminance": 0.1750734448
+    },
+    {
+      "event": "end",
+      "id": "underwater_lamp",
+      "index": 5,
+      "pos": {
+        "x": -50,
+        "y": -3,
+        "z": 359
+      },
+      "time_us": 3251128202,
+      "timeofday": 0.5,
+      "begin_us": 3245116958,
+      "prepare_us": 3243100123,
+      "sources": 1,
+      "emission_rgb": [
+        1.46939,
+        0.98981,
+        0.413001
+      ],
+      "held": 1,
+      "warm": true,
+      "wet": true,
+      "frames": 180,
+      "sampled_seconds": 6.0011139325,
+      "mean_rgb": [
+        0.010914648851866667,
+        0.06004698152333333,
+        0.108063316296
+      ],
+      "mean_luminance": 0.05306822696796605,
+      "max_frame_luminance_change": 0.005432328634444011,
+      "peak_sampled_luminance": 0.191126436
+    },
+    {
+      "event": "end",
+      "id": "water_exit",
+      "index": 6,
+      "pos": {
+        "x": -50,
+        "y": 4,
+        "z": 359
+      },
+      "time_us": 3259169501,
+      "timeofday": 0.7799999713897705,
+      "begin_us": 3253167941,
+      "prepare_us": 3251128840,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 179,
+      "sampled_seconds": 5.96944195778,
+      "mean_rgb": [
+        0.017490913048386666,
+        0.04455373637406666,
+        0.08501566536733333
+      ],
+      "mean_luminance": 0.04172153140834095,
+      "max_frame_luminance_change": 0.004736794745834001,
+      "peak_sampled_luminance": 0.1752261966
+    },
+    {
+      "event": "end",
+      "id": "cave_dark",
+      "index": 7,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 8
+      },
+      "time_us": 3267128450,
+      "timeofday": 0,
+      "begin_us": 3261103328,
+      "prepare_us": 3259304796,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 179,
+      "sampled_seconds": 5.9686099627499996,
+      "mean_rgb": [
+        1.0019768614637748e-09,
+        1.3726936894284106e-09,
+        9.257734078470198e-09
+      ],
+      "mean_luminance": 1.863179207891946e-09,
+      "max_frame_luminance_change": 6.761291419644e-09,
+      "peak_sampled_luminance": 4.365140285e-07
+    },
+    {
+      "event": "end",
+      "id": "cave_placed",
+      "index": 8,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 8
+      },
+      "time_us": 3275186396,
+      "timeofday": 0,
+      "begin_us": 3269169038,
+      "prepare_us": 3267129054,
+      "sources": 1,
+      "emission_rgb": [
+        1.95949,
+        2.0,
+        0.819652
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 179,
+      "sampled_seconds": 5.96776194871,
+      "mean_rgb": [
+        0.033869761652847684,
+        0.03982266919403974,
+        0.019904082875695363
+      ],
+      "mean_luminance": 0.03711895911859784,
+      "max_frame_luminance_change": 0.00034509736271400027,
+      "peak_sampled_luminance": 0.7775638103,
+      "emission_color_cosine": 0.994660620305439
+    },
+    {
+      "event": "end",
+      "id": "cave_removed",
+      "index": 9,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 8
+      },
+      "time_us": 3283141466,
+      "timeofday": 0,
+      "begin_us": 3277124783,
+      "prepare_us": 3275187248,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 180,
+      "sampled_seconds": 6.00114094836,
+      "mean_rgb": [
+        9.697659606425999e-10,
+        1.3179010708858666e-09,
+        8.994411947693333e-09
+      ],
+      "mean_luminance": 1.7981316317536472e-09,
+      "max_frame_luminance_change": 4.9656268072423515e-09,
+      "peak_sampled_luminance": 3.123480781e-07,
+      "clear_latency_ms": 756.841
+    },
+    {
+      "event": "end",
+      "id": "held_movement",
+      "index": 10,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 9.5
+      },
+      "time_us": 3291180805,
+      "timeofday": 0,
+      "begin_us": 3285147410,
+      "prepare_us": 3283147446,
+      "sources": 1,
+      "emission_rgb": [
+        1.46939,
+        0.98981,
+        0.413001
+      ],
+      "held": 1,
+      "warm": true,
+      "wet": false,
+      "frames": 180,
+      "sampled_seconds": 6.00184994191,
+      "mean_rgb": [
+        0.00011585803372773334,
+        9.331063561566667e-05,
+        4.0729667113466664e-05
+      ],
+      "mean_luminance": 9.43078665284332e-05,
+      "max_frame_luminance_change": 7.764271491348e-06,
+      "peak_sampled_luminance": 0.001070228755
+    },
+    {
+      "event": "end",
+      "id": "held_removed",
+      "index": 11,
+      "pos": {
+        "x": -3,
+        "y": -69,
+        "z": 8
+      },
+      "time_us": 3299140182,
+      "timeofday": 0,
+      "begin_us": 3293124847,
+      "prepare_us": 3291294159,
+      "sources": 0,
+      "emission_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "held": 0,
+      "warm": false,
+      "wet": false,
+      "frames": 180,
+      "sampled_seconds": 6.00105395556,
+      "mean_rgb": [
+        1.0203739347805334e-09,
+        1.3890896963058e-09,
+        9.46381521318e-09
+      ],
+      "mean_luminance": 1.8936959077238454e-09,
+      "max_frame_luminance_change": 6.24990530021714e-09,
+      "peak_sampled_luminance": 4.263165181e-07,
+      "clear_latency_ms": 94.014
+    }
+  ],
+  "runtime": {
+    "runtime-core": [
+      {
+        "index": 1,
+        "name": "baseline",
+        "time_us": 1809012187,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 2,
+        "name": "zero shadow strength",
+        "time_us": 1822070571,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 3,
+        "name": "hidden sky lights",
+        "time_us": 1824072703,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 4,
+        "name": "visible sun",
+        "time_us": 1826089809,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 5,
+        "name": "visible moon",
+        "time_us": 1828103981,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 6,
+        "name": "custom light restored",
+        "time_us": 1830117550,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 7,
+        "name": "held light",
+        "time_us": 1832131352,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 8,
+        "name": "removed held light",
+        "time_us": 1834248755,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 9,
+        "name": "unmapped replacement",
+        "time_us": 1836263275,
+        "completed_frame_checkpoints": 2
+      }
+    ],
+    "runtime-legacy": [
+      {
+        "index": 1,
+        "name": "baseline",
+        "time_us": 1916579967,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 2,
+        "name": "held light",
+        "time_us": 1936580661,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 3,
+        "name": "removed held light",
+        "time_us": 1942681168,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 4,
+        "name": "unmapped replacement",
+        "time_us": 1948785059,
+        "completed_frame_checkpoints": 2
+      }
+    ],
+    "runtime-forward-base": [
+      {
+        "index": 1,
+        "name": "baseline",
+        "time_us": 1960268960,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 2,
+        "name": "held light",
+        "time_us": 1966438679,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 3,
+        "name": "removed held light",
+        "time_us": 1972440610,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 4,
+        "name": "unmapped replacement",
+        "time_us": 1978440176,
+        "completed_frame_checkpoints": 2
+      }
+    ],
+    "runtime-disabled": [
+      {
+        "index": 1,
+        "name": "baseline",
+        "time_us": 2105621729,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 2,
+        "name": "held light",
+        "time_us": 2121548201,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 3,
+        "name": "removed held light",
+        "time_us": 2127650229,
+        "completed_frame_checkpoints": 2
+      },
+      {
+        "index": 4,
+        "name": "unmapped replacement",
+        "time_us": 2133656011,
+        "completed_frame_checkpoints": 2
+      }
+    ]
+  }
+}

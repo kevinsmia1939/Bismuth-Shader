@@ -128,6 +128,24 @@ normal path and continue ignoring asset alpha. Mips are rebuilt on reload; a fla
 replacement clears the old variance. With mipmapping disabled, the prepared base
 level has zero variance unless the driver reduced the source dimensions.
 
+ORM maps also have a separate data-texture cache and CPU-built RGBA8 mip chains.
+Occlusion and metallic fraction use linear averages. Roughness is filtered in
+GGX alpha-squared space: average `roughness^4`, then take its fourth root for
+storage. This prevents mixtures of smooth and rough texels from acquiring the
+overly narrow highlights of a color-averaged roughness value. Intermediate
+moments stay unquantized; odd sizes, driver reductions, animation and reload use
+the same path as normal maps. Source color textures and their alpha are unchanged.
+Both maps retain ordinary texture sampling in the shader, without an extra
+sampler, pass or live-frame CPU filtering. Hardware bilinear/trilinear sampling
+still interpolates the encoded roughness between prepared texels/levels. This is
+a bounded isotropic approximation, not exact filtering of the nonlinear BRDF.
+
+The optional [Minetest Game material pack](../../textures/bismuth-minetest-game/README.md)
+supplies restrained constant ORM companions for stone, cobble, steel, gold,
+copper, mese lamps and mese blocks. It contains no replacement color artwork.
+Ordinary unmapped textures remain rough dielectrics; the engine does not infer
+metallicity from arbitrary albedo colors or filenames.
+
 The shader adds half the decoded variance, scaled by live normal strength squared,
 to the existing fragment-quad estimate before the shared 0.25 variance cap. The
 result feeds directional/local GGX and environment roughness together. This is a
@@ -185,126 +203,59 @@ there is no extra render target or full-screen material pass.
 
 ## Verification
 
-Run `python3 util/test_material_maps.py` with SDL2/desktop OpenGL available. The
-actual shared GLSL is tested numerically for high texture units, tangent normal
-orientation, mirrored/rotated UVs, degenerate derivatives, zero strength, linear
-ORM channels, missing-map guards, dielectric/conductor GGX response, roughness,
-BRDF reciprocity, bounded highlights, occluded environment reflection and
-preservation of native emission on metallic lamps.
-The tests print the actual renderer; `LUANTI_TEST_GLSL=120` selects legacy GLSL
-instead of the default 330 core. On this NVIDIA desktop, Mesa llvmpipe is selected
-with `SDL_VIDEODRIVER=offscreen`,
+[Milestone 5](graphics-milestone-5.md) tracks the acceptance criteria and current
+checks. The primary native target is Minetest Game. Earlier VoxeLibre results
+remain in the historical milestones 2–4 report.
+
+Numeric checks use production GLSL and floating-point pixel readbacks:
+
+| Command in util/ | Coverage |
+| --- | --- |
+| `python3 test_material_maps.py` | Tangent normal orientation, mirrored/rotated UVs, derivative guards, linear ORM, absent maps, dielectric/conductor GGX, reciprocity, bounded highlights, environment occlusion and metallic emission |
+| `python3 test_specular_filter.py` | Pixel-footprint variance, cutout participation, strength, directional/local composition and smooth-incidence precision |
+| `python3 test_normal_mipmaps.py` | Actual coarse mip sampling, strength, shared roughness, directional/local GGX, raw-alpha guards and moving subpixel normal patterns |
+| `python3 test_orm_mipmaps.py` | Roughness-aware minification, trilinear/subtexel stability, base data, production GGX and unmapped defaults |
+| `python3 test_point_materials.py` | Local source response, all eight entries, visibility, colored transmission, source movement/removal and geometric-face guards |
+| `python3 test_native_emission.py` | Full node-fragment preservation of native emission, including stale worker state and zero-RGB emitters |
+| `python3 test_surface_directional.py` | Full-fragment mapped/unmapped and lower-capability fallbacks, sun/moon/custom sources, RGB shadow visibility and emissive/cloud composition |
+| `python3 test_minetest_materials.py` | The shipped Minetest Game map bytes: matte stone, stronger bounded metal response and retained lamp emission |
+
+Run these from the repository as `python3 util/<script>`. The default context
+uses desktop GLSL 330. `LUANTI_TEST_GLSL=120` selects legacy GLSL. Mesa llvmpipe
+is selected here with `SDL_VIDEODRIVER=offscreen`,
 `__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json` and
-`LIBGL_ALWAYS_SOFTWARE=true`. They send no input or image capture.
+`LIBGL_ALWAYS_SOFTWARE=true`. Tests print the actual renderer.
 
-The C++ suite verifies extension round-trip/legacy prefixes/reset, material
-identity/grouping and synchronized animation/clearing. The runtime test
-`util/test_material_shading.sh` loads explicit game maps, local texture-pack
-companions, an emissive metallic node and animated maps, then replaces a material with an unmapped node.
-It checks actual shader bindings and clean shutdown with the quality preset.
-Optional `LUANTI_TEST_DRIVER=opengl`, `LUANTI_TEST_AA=fsaa` and
-`LUANTI_TEST_STEREO=sidebyside` select other rendering paths.
-`LUANTI_TEST_POST_PROCESSING=false` checks the direct forward-rendering path.
-`LUANTI_TEST_DYNAMIC_DIRECT=true` adds/removes a held lamp while mapped receivers
-and animation remain active; `false` checks the asynchronous direct-light fallback.
-`LUANTI_TEST_SHADOWS=false` checks compilation and binding without shadow maps.
-`LUANTI_TEST_DIRECTIONAL=true` exercises zero shadow intensity, hidden sky lights,
-sun, moon and a restored custom direction, requiring the actual world shader
-bindings to report each source state.
+`bin/luanti --run-unittests` checks material serialization/legacy prefixes,
+identity/grouping, animation and CPU mip moments. The opt-in command
+`bin/luanti --run-tests '[normal-mips],[material-mips]'` checks actual OpenGL 3
+and legacy texture uploads, every mip, reloads and format-flag restoration.
 
-`python3 util/test_surface_directional.py` compiles the full production node
-fragment and reads numeric floating-point pixels. It checks mapped conductors,
-unmapped and lower-capability dielectric fallbacks, disabled/zero/faded shadows,
-RGB transmission, hidden sources, moon strength, native-light ratios, degenerate
-views, geometric-face guards and emissive/cloud composition. The water variants
-check sun glints independently of shadows and preservation of artificial light
-in the legacy sky fallback. No screenshots or input events are generated.
+`bash util/test_material_shading.sh` creates a disposable devtest fixture with
+explicit maps, local pack companions, animated maps, cutout and metallic-emissive
+nodes, then replaces a mapped receiver with an ordinary node. Each state waits
+for two completed-client frame checkpoints. `util/audit_material_runtime.py`
+rejects missing frame coverage and incomplete shutdown. Optional switches:
 
-These full-fragment checks passed on NVIDIA GLSL 120/330 and Mesa llvmpipe
-GLSL 330. The Release build and full C++ suite passed again (353 individual
-tests and 50 Catch cases), including source selection, visibility, horizon fade,
-linear daylight conversion and custom-direction normalization. Live source-control
-tests passed on OpenGL 3/TAA with shadows enabled and disabled, on legacy
-OpenGL/4x MSAA/stereo, and with post processing disabled. The shadow-enabled
-fixture requires an actual bound shadow map as well as sun/moon/custom source
-transitions. The full-quality water basin passed with shadows disabled, requiring
-the directional packet to bind on a real refractive liquid material alongside
-source/flow geometry and medium transitions. The water-reflection shader flag
-and its settings dependency no longer require shadow maps.
-The native VoxeLibre terrain-copy run also passed with the final source packet,
-real water binding, held-torch RGB insertion/removal, colored voxel lighting,
-cloud/fog denoising and underwater transitions enabled together. These numeric
-and runtime checks do not establish visual parity or frame-rate targets.
+- `LUANTI_TEST_DRIVER=opengl LUANTI_TEST_AA=fsaa LUANTI_TEST_STEREO=sidebyside`
+  tests legacy GL with MSAA and both signed eye bindings.
+- `LUANTI_TEST_DYNAMIC_DIRECT=true` inserts/removes a held lamp;
+  `false` checks the asynchronous direct-light fallback.
+- `LUANTI_TEST_DIRECTIONAL=true` tests zero shadow intensity, hidden sources,
+  sunlight, moonlight and a restored custom direction.
+- `LUANTI_TEST_POST_PROCESSING=false` tests forward rendering.
+- `LUANTI_TEST_MIPMAPS=false` tests base-only data textures.
+- `LUANTI_TEST_MATERIALS=false` tests the disabled-material fallback.
+- `LUANTI_TEST_SHADOWS=false` tests compilation/binding without shadow maps.
 
-`python3 util/test_point_materials.py` tests the actual shared GGX/voxel helpers
-and extracts the node material-composition block and directional GGX expression.
-Numeric checks cover dielectric/conductor response, roughness, view dependence,
-reciprocity, all eight source entries, colored transmission, occlusion, movement,
-removal, finite peaks and missing-data/strength guards. Node checks cover mapped
-normal response, rough unmapped fallback, metallic composition, preserved emission,
-ORM occlusion, alpha, field-edge coverage and camera-origin conventions. The
-directional control checks clear/opaque and colored/fractional shadow visibility.
-No screenshots or input events are generated.
+The native runner `util/test_graphics_milestones.py` supports prepared Minetest
+Game scenes and the legacy VoxeLibre inputs. `--texture-pack` accepts the supplied
+ORM-only pack and requires actual native map binding. The eleven phases include
+forest movement, sunset, river motion, water entry/exit, placed lamps and held
+torch movement/removal, with scalar scene brightness and completed-frame gates.
+The benchmark runner preserves game identity when copying worlds and stores
+exact launch settings separately from settings saved on shutdown.
 
-`python3 util/test_specular_filter.py` checks the actual node roughness-filter
-expression and directional/local composition. It verifies flat roughness,
-monotonic and bounded normal variance, smooth-incidence precision, metallic
-lamp highlights, derivative participation at a cutout edge, sampled tangent
-normals, map strength, geometric variance and absent-map guards. The runtime
-material fixture also places an alpha-clipped block with authored normal/ORM
-maps. Numeric filtering and existing material/local-light regressions passed
-on NVIDIA GLSL 120/330 and Mesa llvmpipe GLSL 330.
-The mapped cutout fixture with filtered roughness passed on OpenGL 3/TAA,
-including held-light insertion/removal, animated companions and clean shutdown.
-It also passed on legacy OpenGL/4x MSAA/stereo and OpenGL 3/TAA/stereo with
-both signed eye bindings, with post processing disabled, and with asynchronous
-direct lighting restored. The native VoxeLibre torch/water integration passed
-again with the final filter and precision correction. These checks cover
-shader execution and source/medium transitions; warm-frame performance and
-visual comparisons across games remain separate audits.
-
-The Release build and full C++ suite passed in this workspace (353 individual
-tests and 48 Catch cases). Numeric material tests passed on the NVIDIA GTX 1650 Ti
-with GLSL 120/330 core and on Mesa llvmpipe with GLSL 330 core. Runtime material
-tests passed on OpenGL 3/TAA, legacy OpenGL/4x MSAA and side-by-side stereo/TAA.
-The mapped-material fixture also passed with post processing disabled. A separate
-side-by-side OpenGL 3/4x MSAA run preserved water capture and ordered RGB source
-updates with the expanded material texture slots.
-They verified local texture-pack loading, emissive variants and actual normal/ORM
-bindings. These checks establish implemented behavior; they do not prove parity
-with a particular Minecraft shader pack or performance on other hardware.
-
-Local/directional specular numeric tests passed on NVIDIA GLSL 120/330 and Mesa
-llvmpipe GLSL 330, alongside the existing diffuse/atlas regression on all three
-configurations. The combined held-lamp material run passed on OpenGL 3/TAA and
-legacy OpenGL/4x MSAA/side-by-side stereo, with authored/companion/animated maps,
-source removal, fog/water quality effects and clean shutdown. The first prototype
-hit the cold shader-compilation timeout before gameplay. Dynamic loop bounds and
-compile-time omission of ineligible water/foliage GGX completed the subsequent
-cold run; warm-frame performance remains hardware/scene dependent.
-The explicit asynchronous-direct fallback also passed with mapped receivers
-and held-lamp source updates, using the 13-column atlas without local GGX.
-The held-lamp material fixture passed with post processing disabled as well,
-exercising the same local-highlight path in forward rendering.
-
-The combined voxel quality fixture also passed with frame-direct lighting,
-dynamic sources, RGB transmission, emissive SSAO coverage, fog denoising and
-water geometry enabled together. A native VoxeLibre world copy passed with the
-full quality preset, native held-torch insertion/removal and underwater
-transitions. Both current-frame and completed-worker light lists carried the
-warm torch RGB and cleared after removal. These runs do not establish visual
-parity with a Minecraft shader pack.
-
-View-dependent material uniforms use the rendered camera node plus the map
-origin, including each stereo eye displacement. Stereo offsets also update the
-absolute camera transform immediately, so water capture and medium checks made
-before scene traversal see the current eye. The stereo material fixture checks
-that active material shaders receive both signed eye offsets.
-After the camera correction, the Release build and full C++ suite passed again,
-as did the held-lamp material fixture on legacy OpenGL/4x MSAA/stereo and
-OpenGL 3/TAA/stereo, including both material-eye binding checks.
-The native VoxeLibre torch/water integration passed again after that correction.
-
-A copied VoxeLibre night world also ran with the full quality preset and shut
-down cleanly. Its nine colored emissive sources remained active, and ordinary
-server `_normal` color textures were not auto-bound as material maps.
+These tests do not capture images or send input-device events. Numeric patterns
+and native scalar probes cover defined behavior; they cannot certify every
+asset, every visible pixel or parity with a particular Minecraft shader pack.

@@ -8,6 +8,58 @@ from test_point_materials import FLAGS, MATERIAL, VOXEL, NODE_COMPOSE, close
 from test_specular_filter import FILTER, SUN
 from test_dynamic_lighting import atlas, upload, sources, falloff, N
 
+MOTION = '''
+uniform float testOffset;
+void main() {
+ vec2 uv=gl_FragCoord.xy/64.0*4.0+vec2(testOffset,0);
+ vec3 filterNormal; float variance;
+ vec3 n=readMaterialNormal(vec3(0,0,1),vec3(gl_FragCoord.xy/64.0,0),uv,filterNormal,variance);
+ float r=filterMaterialRoughness(vec3(0,0,1),filterNormal,0.1,variance);
+ gl_FragColor=vec4(materialSpecular(n,vec3(0,0,1),normalize(vec3(1,0,1)),r,vec3(0.04)),1);
+}
+'''
+
+
+def motion():
+    # A fixed subpixel normal pattern viewed under a fixed small source. Moving
+    # UV phase aliases severely without mips; the variance chain must suppress
+    # that flicker rather than retain a sharp highlight on its averaged normal.
+    with ShaderTest('#define ENABLE_MATERIAL_MAPS\n'+MATERIAL+MOTION) as gpu:
+        gpu.sampler('texture4',4)
+        gpu.uniform('materialMapFlags',1,0,1)
+        gpu.uniform('materialNormalMipmaps',1)
+        gpu.texture(4,(0.5,0.5,1,0),width=64,height=64)
+        tex=gpu.api('glTexImage2D',None,c.c_uint,c.c_int,c.c_int,c.c_int,c.c_int,c.c_int,c.c_uint,c.c_uint,c.c_void_p)
+        raw=(177/127.5-1,128/127.5-1,245/127.5-1)
+        length=math.sqrt(sum(v*v for v in raw))
+        mean=(0,raw[1]/length,raw[2]/length)
+        deviation=math.sqrt(1-sum(v*v for v in mean))
+        coarse=tuple(round((v*0.5+0.5)*255) for v in mean)+(round(deviation*255),)
+        for level in range(7):
+            size=64>>level
+            pixels=[]
+            for y in range(size):
+                for x in range(size):
+                    pixels.extend((177 if (x+y)%2==0 else 78,128,245,0) if level==0 else coarse)
+            data=(c.c_ubyte*len(pixels))(*pixels)
+            tex(0x0DE1,level,0x8058,size,size,0,0x1908,0x1401,data)
+        param=gpu.api('glTexParameteri',None,c.c_uint,c.c_uint,c.c_int)
+        param(0x0DE1,0x2802,0x2901);param(0x0DE1,0x2803,0x2901)
+        samples=[]
+        for filtering in (0x2600,0x2703):
+            param(0x0DE1,0x2801,filtering)
+            values=[]
+            for phase in range(16):
+                gpu.uniform('testOffset',(phase+0.5)/64)
+                values.append(gpu.draw()[0])
+            samples.append(values)
+        raw,filtered=samples
+        assert max(raw)-min(raw)>1,raw
+        assert max(filtered)-min(filtered)<1e-5,filtered
+        assert max(filtered)<max(raw)*0.1,(raw,filtered)
+        print('PASS: moving subtexel normal pattern: raw highlight range',max(raw)-min(raw),
+              'filtered range',max(filtered)-min(filtered),';',gpu.renderer)
+
 MAIN='''
 uniform float testScale, testMode, testRoughness;
 uniform vec3 cameraPosition, cameraOffset;
@@ -93,4 +145,6 @@ def run():
         print('PASS: real mip minification retains roughness, live strength, directional GGX, base level and raw/missing-map guards;',gpu.renderer)
 
 
-if __name__=='__main__': run()
+if __name__=='__main__':
+    run()
+    motion()

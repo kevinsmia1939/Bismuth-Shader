@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: LGPL-2.1-or-later
 -- All edits are in a disposable copy of the frozen benchmark world.
 local world=core.get_worldpath()
+local game=graphics_test_game
 local function event(kind,data)
  data=data or {};data.event=kind;data.time_us=core.get_us_time()
  core.log("action","Graphics acceptance: "..core.write_json(data,false))
@@ -12,7 +13,12 @@ local function position(stage,t)
  local s=scenes[stage.scene]
  local p=vector.new(s.pos)
  if stage.mode=="walk" then p.x=p.x+math.sin(t*math.pi*2)*0.5 end
- if stage.mode=="held_move" then p.x=p.x+t*1.5 end
+ if stage.mode=="held_move" then
+  -- Follow the scouted open cave corridor, which may face any cardinal axis.
+  -- A fixed world-X move can put the native camera/lamp inside a side wall.
+  p.x=p.x-math.sin(s.yaw)*t*1.5
+  p.z=p.z+math.cos(s.yaw)*t*1.5
+ end
  if stage.mode=="entry" or stage.mode=="exit" then
   local surface=scenes.sunset_river.evidence.surface
   p.x=surface.x;p.z=surface.z
@@ -42,8 +48,8 @@ local function next_stage()
  core.load_area(vector.subtract(s.pos,96),vector.add(s.pos,96))
  local lamp=scenes.glowing_cave.evidence.lamp
  core.load_area(vector.subtract(lamp,16),vector.add(lamp,16))
- core.set_node(lamp,{name=stage.placed and "mcl_nether:glowstone" or "air"})
- assert(player:set_wielded_item(stage.held and "mcl_torches:torch" or ""))
+ core.set_node(lamp,{name=stage.placed and game.lamp or "air"})
+ assert(player:set_wielded_item(stage.held and game.torch or ""))
  player:set_sun({visible=true});player:set_moon({visible=true})
  player:set_clouds({density=0.4,height=120,thickness=16,speed={x=0,y=0}})
  player:set_lighting({shadows={intensity=0.65},volumetric_light={strength=0.15}})
@@ -53,10 +59,7 @@ local function next_stage()
 end
 core.register_on_joinplayer(function(joined)
  player=joined
- for _,name in ipairs({"gamerule:doMobSpawning","gamerule:doWeatherCycle"}) do
-  assert(vl_tuning.registered_settings[name]):set(false)
- end
- mcl_weather.change_weather("none");core.clear_objects({mode="full"})
+ game.freeze_environment()
  player:set_physics_override({gravity=0,speed=0,liquid_sink=0})
  player:hud_set_flags({hotbar=false,healthbar=false,crosshair=false,wielditem=false,breathbar=false})
  local file=assert(io.open(world.."/graphics-scenes.json","r"))

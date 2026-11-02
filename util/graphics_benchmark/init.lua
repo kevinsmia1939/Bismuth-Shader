@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: LGPL-2.1-or-later
 -- All changes are confined to the runner's disposable world copy.
 local world=core.get_worldpath()
+local game=graphics_test_game
 local pose, player, scenes
 local function event(kind,data)
  data=data or {};data.event=kind;data.time_us=core.get_us_time()
@@ -42,7 +43,7 @@ local function prepare()
    if math.max(math.abs(x),math.abs(z))==radius then
     local data=core.get_biome_data({x=x,y=20,z=z})
     local name=data and core.get_biome_name(data.biome) or ""
-    if name=="Forest" or name=="BirchForest" or name=="FlowerForest" then
+    if game.forests[name] then
      forest_center={x=x,z=z};break
     end
    end
@@ -56,7 +57,7 @@ local function prepare()
   local leaves=core.find_nodes_in_area({x=c.x-64,y=0,z=c.z-64},{x=c.x+64,y=128,z=c.z+64},{"group:leaves"})
   assert(#leaves>=64,"Forest candidate lacks generated foliage")
   local ground=core.find_nodes_in_area_under_air({x=c.x-48,y=1,z=c.z-48},
-   {x=c.x+48,y=100,z=c.z+48},{"mcl_core:dirt_with_grass"})
+   {x=c.x+48,y=100,z=c.z+48},game.forest_floors)
   order(ground,c)
   local floor
   for _,p in ipairs(ground) do
@@ -83,12 +84,12 @@ local function prepare()
    event("prepare_river",{index=index,x=center.x,z=center.z})
    emerge(center,112,-24,32,function()
     local water=core.find_nodes_in_area_under_air({x=center.x-104,y=-4,z=center.z-104},
-     {x=center.x+104,y=8,z=center.z+104},{"mclx_core:river_water_source","mcl_core:water_source"})
+     {x=center.x+104,y=8,z=center.z+104},game.waters)
     order(water,center)
     local selected
     for _,p in ipairs(water) do
      local name=core.get_node(p).name
-     local channel=name=="mclx_core:river_water_source" or
+     local channel=name==game.river or
       (ridge and math.abs(ridge:get_2d({x=p.x,y=p.z}))<=0.1)
      local deep=channel
      for dy=1,5 do
@@ -138,14 +139,14 @@ local function prepare()
      assert(best and best_run>=6,"No open natural underground chamber found")
      local lamp={x=best.x+best_d.x*3,y=best.y+1,z=best.z+best_d.z*3}
      assert(air(lamp),"Cave lamp pose must be air")
-     core.set_node(lamp,{name="mcl_nether:glowstone"})
+     core.set_node(lamp,{name=game.lamp})
      scenes[3]=scene("glowing_cave",vector.add(best,{x=0,y=1,z=0}),
       math.atan2(-best_d.x,best_d.z),0,0,
-      {floor=core.get_node(best).name,open_distance=best_run,lamp=lamp,lamp_name="mcl_nether:glowstone"})
+      {floor=core.get_node(best).name,open_distance=best_run,lamp=lamp,lamp_name=game.lamp})
      local index=1
      local function preload()
       if index>#scenes then
-       local manifest={version=1,game="voxelibre",seed=core.get_mapgen_setting("seed"),scenes=scenes}
+       local manifest={version=1,game=game.id,seed=core.get_mapgen_setting("seed"),scenes=scenes}
        write_json(world.."/graphics-scenes.json",manifest)
        event("prepared",manifest)
        core.request_shutdown("Graphics scene preparation complete",false,0);return
@@ -186,28 +187,23 @@ local function next_scene()
   local target=vector.add(item.evidence.surface,{x=0,y=0.6,z=0})
   assert(not core.raycast(eye,target,false,false):next(),"River surface must be visible from the camera")
  end
- if item.id=="forest" then assert(item.evidence.biome:find("Forest"),"Forest biome evidence required") end
+ if item.id=="forest" then assert(item.evidence.biome:lower():find("forest"),"Forest biome evidence required") end
  player:set_pos(pose);player:set_look_horizontal(item.yaw);player:set_look_vertical(item.pitch)
  player:set_fov(70,false,0)
  player:set_sun({visible=true});player:set_moon({visible=true})
  player:set_clouds({density=0.4,height=120,thickness=16,speed={x=0,y=0}})
  player:set_lighting({shadows={intensity=0.65},volumetric_light={strength=0.15}})
  core.set_timeofday(item.timeofday)
- assert(player:set_wielded_item(item.id=="glowing_cave" and "mcl_torches:torch" or ""))
+ assert(player:set_wielded_item(item.id=="glowing_cave" and game.torch or ""))
  event("settle",item)
  phase="settle";deadline=core.get_us_time()+warmup*1000000
 end
 core.register_on_joinplayer(function(joined)
  player=joined
- for _,name in ipairs({"gamerule:doMobSpawning","gamerule:doWeatherCycle"}) do
-  local rule=assert(vl_tuning.registered_settings[name],"Missing benchmark gamerule")
-  rule:set(false)
- end
- mcl_weather.change_weather("none")
- event("environment",{mob_spawning=false,weather_cycle=false,weather=mcl_weather.get_weather()})
+ game.freeze_environment()
+ event("environment",{mob_spawning=false,weather_cycle=false,game=game.id})
  -- Remove persistent actors from this disposable copy as well as disabling
  -- new spawns in the runner config. Otherwise each profile sees different AI.
- core.clear_objects({mode="full"})
  player:set_physics_override({gravity=0,speed=0,liquid_sink=0})
  player:hud_set_flags({hotbar=false,healthbar=false,crosshair=false,wielditem=false,breathbar=false})
  if core.settings:get_bool("graphics_benchmark_prepare",false) then

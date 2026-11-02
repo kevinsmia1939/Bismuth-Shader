@@ -3,6 +3,7 @@
 #pragma once
 
 #include "irr_v3d.h"
+#include "texture_data.h"
 #include <IImage.h>
 #include <ITexture.h>
 #include <IVideoDriver.h>
@@ -11,7 +12,7 @@
 #include <cmath>
 #include <vector>
 
-namespace normal_mipmaps {
+namespace material_mipmaps {
 struct Level {
 	core::dimension2du size;
 	std::vector<video::SColor> pixels;
@@ -24,8 +25,8 @@ inline bool supported(video::ECOLOR_FORMAT format)
 }
 
 // Equal-area boxes retain every texel, including odd sizes and one-pixel axes.
-// Keep unquantized mean unit vectors between levels: renormalizing a mip would
-// erase the variance that the next level needs to retain.
+// Keep unquantized moments between levels. Renormalizing a normal mip or
+// averaging already encoded roughness would lose the next level's statistics.
 inline std::vector<v3f> resize(const std::vector<v3f> &input,
 		core::dimension2du from, core::dimension2du to)
 {
@@ -48,7 +49,7 @@ inline std::vector<v3f> resize(const std::vector<v3f> &input,
 }
 
 inline std::vector<Level> build(const video::IImage &image,
-		core::dimension2du target, bool mipmaps)
+		core::dimension2du target, bool mipmaps, TextureData type = TextureData::NORMAL)
 {
 	if (!supported(image.getColorFormat()) || !target.Width || !target.Height)
 		return {};
@@ -57,10 +58,19 @@ inline std::vector<Level> build(const video::IImage &image,
 	std::vector<v3f> means(original.getArea());
 	for (u32 y = 0; y < original.Height; ++y) for (u32 x = 0; x < original.Width; ++x) {
 		const auto color = image.getPixel(x,y);
-		v3f n(color.getRed()/127.5f-1, color.getGreen()/127.5f-1,
-			std::max(color.getBlue()/127.5f-1,0.001f));
-		n.normalize();
-		means[y*original.Width+x] = n;
+		if (type == TextureData::NORMAL) {
+			v3f n(color.getRed()/127.5f-1, color.getGreen()/127.5f-1,
+				std::max(color.getBlue()/127.5f-1,0.001f));
+			n.normalize();
+			means[y*original.Width+x] = n;
+		} else {
+			// GGX alpha-squared is perceptual roughness^4. Average that
+			// footprint before encoding roughness again; a color average
+			// would make mixed smooth/rough texels excessively glossy.
+			const float roughness = std::max(color.getGreen()/255.0f, 0.045f);
+			means[y*original.Width+x] = v3f(color.getRed()/255.0f,
+				std::pow(roughness, 4.0f), color.getBlue()/255.0f);
+		}
 	}
 	means = resize(means,original,target);
 	std::vector<Level> levels;
@@ -71,9 +81,14 @@ inline std::vector<Level> build(const video::IImage &image,
 			return u32(std::lround(std::clamp(value,0.0f,1.0f)*255));
 		};
 		for (const auto &mean : means) {
-			const float variance = std::max(0.0f,1.0f-mean.getLengthSQ());
-			level.pixels.emplace_back(encode(std::sqrt(variance)),
-				encode(mean.X*0.5f+0.5f),encode(mean.Y*0.5f+0.5f),encode(mean.Z*0.5f+0.5f));
+			if (type == TextureData::NORMAL) {
+				const float variance = std::max(0.0f,1.0f-mean.getLengthSQ());
+				level.pixels.emplace_back(encode(std::sqrt(variance)),
+					encode(mean.X*0.5f+0.5f),encode(mean.Y*0.5f+0.5f),encode(mean.Z*0.5f+0.5f));
+			} else {
+				level.pixels.emplace_back(255, encode(mean.X),
+					encode(std::pow(mean.Y, 0.25f)), encode(mean.Z));
+			}
 		}
 		levels.push_back(std::move(level));
 		if (!mipmaps || (target.Width == 1 && target.Height == 1)) break;
@@ -84,11 +99,12 @@ inline std::vector<Level> build(const video::IImage &image,
 	return levels;
 }
 
-inline bool upload(const video::IImage &image, video::ITexture &texture)
+inline bool upload(const video::IImage &image, video::ITexture &texture,
+		TextureData type = TextureData::NORMAL)
 {
 	if (texture.getType() != video::ETT_2D || texture.getColorFormat() != video::ECF_A8R8G8B8)
 		return false;
-	const auto levels = build(image,texture.getSize(),texture.hasMipMaps());
+	const auto levels = build(image,texture.getSize(),texture.hasMipMaps(),type);
 	if (levels.empty()) return false;
 	for (u32 level = 0; level < levels.size(); ++level) {
 		auto *data = texture.lock(video::ETLM_WRITE_ONLY,level);
@@ -107,7 +123,7 @@ inline bool upload(const video::IImage &image, video::ITexture &texture)
 
 inline video::ITexture *create(video::IVideoDriver &driver, const io::path &name, video::IImage &image)
 {
-	// The alpha channel holds variance, even when the asset has no color alpha.
+	// RGBA8 retains normal variance in alpha and full precision in ORM channels.
 	// Restore all mutually exclusive format flags, including the all-unset case.
 	struct Flags {
 		video::IVideoDriver &driver;
@@ -129,4 +145,4 @@ inline video::ITexture *create(video::IVideoDriver &driver, const io::path &name
 	} restore(driver);
 	return driver.addTexture(name,&image);
 }
-} // namespace normal_mipmaps
+} // namespace material_mipmaps

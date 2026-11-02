@@ -5,7 +5,8 @@
 #include "client/tile.h"
 #include "client/shader.h"
 #include "client/render/surface_light.h"
-#include "client/normal_mipmaps.h"
+#include "client/material_mipmaps.h"
+#include "porting.h"
 #include "irr_ptr.h"
 #include <irrlicht.h>
 #include <IVideoDriver.h>
@@ -30,7 +31,7 @@ TEST_CASE("Normal mipmaps retain variance without renormalizing intermediate mea
 			expected += n.normalize();
 		}
 		expected /= float(size.getArea());
-		auto levels = normal_mipmaps::build(*image,size,true);
+		auto levels = material_mipmaps::build(*image,size,true);
 		REQUIRE(levels.size() >= 3);
 		CHECK(levels.front().size == size);
 		CHECK(levels.back().size == core::dimension2du(1,1));
@@ -41,13 +42,13 @@ TEST_CASE("Normal mipmaps retain variance without renormalizing intermediate mea
 		CHECK(last.getBlue()/127.5f-1 == Catch::Approx(expected.Z).margin(1.0/255+1e-7));
 		CHECK(last.getAlpha()/255.0f == Catch::Approx(std::sqrt(1-expected.getLengthSQ())).margin(0.5/255));
 		CHECK(image->getPixel(0,0).getAlpha() == 240); // Author alpha is untouched.
-		auto reduced = normal_mipmaps::build(*image,{1,1},false);
+		auto reduced = material_mipmaps::build(*image,{1,1},false);
 		REQUIRE(reduced.size() == 1);
 		CHECK(reduced[0].pixels[0] == last);
-		CHECK(normal_mipmaps::build(*image,size,false).size() == 1);
+		CHECK(material_mipmaps::build(*image,size,false).size() == 1);
 		for (u32 y = 0; y < size.Height; ++y) for (u32 x = 0; x < size.Width; ++x)
 			image->setPixel(x,y,{173,180,170,240});
-		for (const auto &level : normal_mipmaps::build(*image,size,true))
+		for (const auto &level : material_mipmaps::build(*image,size,true))
 			for (const auto &pixel : level.pixels) CHECK(pixel.getAlpha() == 0);
 	}
 }
@@ -58,6 +59,7 @@ TEST_CASE("Normal mip uploads retain every level and restore texture flags", "[.
 		SIrrlichtCreationParameters params;
 		params.DriverType = type;
 		params.WindowSize = {64,64};
+		params.OGLES2ShaderPath = (porting::path_share + "/client/shaders/Irrlicht/").c_str();
 		irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
 		REQUIRE(device);
 		auto *driver = device->getVideoDriver();
@@ -68,14 +70,14 @@ TEST_CASE("Normal mip uploads retain every level and restore texture flags", "[.
 			irr_ptr<video::IImage> image(driver->createImage(video::ECF_A8R8G8B8,{7,3}));
 			for (u32 y = 0; y < 3; ++y) for (u32 x = 0; x < 7; ++x)
 				image->setPixel(x,y,{255,x%2 ? 37u : 218u,128,218});
-			auto *texture = normal_mipmaps::create(*driver,mips ? "normal_mips" : "normal_base",*image);
+			auto *texture = material_mipmaps::create(*driver,mips ? "normal_mips" : "normal_base",*image);
 			REQUIRE(texture);
 			CHECK(texture->getColorFormat() == video::ECF_A8R8G8B8);
 			CHECK(driver->getTextureCreationFlag(video::ETCF_OPTIMIZED_FOR_SPEED));
 			CHECK_FALSE(driver->getTextureCreationFlag(video::ETCF_ALWAYS_32_BIT));
 			CHECK(driver->getTextureCreationFlag(video::ETCF_NO_ALPHA_CHANNEL));
-			REQUIRE(normal_mipmaps::upload(*image,*texture));
-			const auto expected = normal_mipmaps::build(*image,texture->getSize(),mips);
+			REQUIRE(material_mipmaps::upload(*image,*texture));
+			const auto expected = material_mipmaps::build(*image,texture->getSize(),mips);
 			for (u32 level = 0; level < expected.size(); ++level) {
 				auto *data = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY,level));
 				REQUIRE(data);
@@ -86,12 +88,84 @@ TEST_CASE("Normal mip uploads retain every level and restore texture flags", "[.
 			// Reload every mip, including clearing variance when detail disappears.
 			for (u32 y = 0; y < 3; ++y) for (u32 x = 0; x < 7; ++x)
 				image->setPixel(x,y,{255,128,128,255});
-			REQUIRE(normal_mipmaps::upload(*image,*texture));
+			REQUIRE(material_mipmaps::upload(*image,*texture));
 			auto *last = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY,expected.size()-1));
 			REQUIRE(last);
 			CHECK(video::SColor(last[0]).getAlpha() == 0);
 			texture->unlock();
 		}
+	}
+}
+
+TEST_CASE("ORM mipmaps average GGX width while retaining linear occlusion and metal", "[client][render][material]")
+{
+	SIrrlichtCreationParameters params;
+	params.DriverType = video::EDT_NULL;
+	irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+	REQUIRE(device);
+	for (auto size : {core::dimension2du(8, 8), core::dimension2du(7, 3), core::dimension2du(1, 9)}) {
+		irr_ptr<video::IImage> image(device->getVideoDriver()->createImage(video::ECF_A8R8G8B8, size));
+		double occlusion = 0, alpha2 = 0, metal = 0;
+		for (u32 y = 0; y < size.Height; ++y) for (u32 x = 0; x < size.Width; ++x) {
+			const video::SColor pixel(17, x % 2 ? 255 : 80, (x + y) % 2 ? 255 : 51, y % 2 ? 255 : 0);
+			image->setPixel(x, y, pixel);
+			occlusion += pixel.getRed() / 255.0;
+			alpha2 += std::pow(pixel.getGreen() / 255.0, 4);
+			metal += pixel.getBlue() / 255.0;
+		}
+		const auto levels = material_mipmaps::build(*image, size, true, TextureData::ORM);
+		REQUIRE(levels.back().size == core::dimension2du(1, 1));
+		const auto last = levels.back().pixels.front();
+		CHECK(last.getRed() / 255.0 == Catch::Approx(occlusion / size.getArea()).margin(0.5 / 255 + 1e-7));
+		CHECK(last.getGreen() / 255.0 == Catch::Approx(std::pow(alpha2 / size.getArea(), 0.25)).margin(0.5 / 255 + 1e-7));
+		CHECK(last.getBlue() / 255.0 == Catch::Approx(metal / size.getArea()).margin(0.5 / 255 + 1e-7));
+		CHECK(last.getGreen() > 180); // A color average (~0.6) would be too glossy.
+		for (u32 y = 0; y < size.Height; ++y) for (u32 x = 0; x < size.Width; ++x) {
+			const auto before = image->getPixel(x, y);
+			const auto base = levels.front().pixels[y * size.Width + x];
+			CHECK(base.getRed() == before.getRed());
+			CHECK(base.getGreen() == before.getGreen());
+			CHECK(base.getBlue() == before.getBlue());
+			CHECK(base.getAlpha() == 255);
+			CHECK(before.getAlpha() == 17); // No reinterpretation of color alpha.
+		}
+		const auto reduced = material_mipmaps::build(*image, {1, 1}, false, TextureData::ORM);
+		REQUIRE(reduced.size() == 1);
+		CHECK(reduced[0].pixels[0] == last);
+		CHECK(material_mipmaps::build(*image, size, false, TextureData::ORM).size() == 1);
+	}
+}
+
+TEST_CASE("ORM uploads replace all mips without changing source data", "[.][client][render][material-mips]")
+{
+	for (auto type : {video::EDT_OPENGL3, video::EDT_OPENGL}) {
+		SIrrlichtCreationParameters params;
+		params.DriverType = type;
+		params.WindowSize = {64, 64};
+		params.OGLES2ShaderPath = (porting::path_share + "/client/shaders/Irrlicht/").c_str();
+		irr_ptr<IrrlichtDevice> device(createDeviceEx(params));
+		REQUIRE(device);
+		auto *driver = device->getVideoDriver();
+		driver->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, true);
+		irr_ptr<video::IImage> image(driver->createImage(video::ECF_A8R8G8B8, {8, 8}));
+		for (u32 y = 0; y < 8; ++y) for (u32 x = 0; x < 8; ++x)
+			image->setPixel(x, y, {17, 255, (x + y) % 2 ? 255u : 51u, 255});
+		auto *texture = material_mipmaps::create(*driver, "orm_mips", *image);
+		REQUIRE(texture);
+		REQUIRE(material_mipmaps::upload(*image, *texture, TextureData::ORM));
+		for (u32 level = 1; level <= 3; ++level) {
+			auto *pixels = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY, level));
+			REQUIRE(pixels);
+			CHECK(video::SColor(pixels[0]) == video::SColor(255, 255, 215, 255));
+			texture->unlock();
+		}
+		image->fill({3, 80, 128, 0});
+		REQUIRE(material_mipmaps::upload(*image, *texture, TextureData::ORM));
+		auto *pixels = static_cast<u32 *>(texture->lock(video::ETLM_READ_ONLY, 3));
+		REQUIRE(pixels);
+		CHECK(video::SColor(pixels[0]) == video::SColor(255, 80, 128, 0));
+		texture->unlock();
+		CHECK(image->getPixel(0, 0).getAlpha() == 3);
 	}
 }
 

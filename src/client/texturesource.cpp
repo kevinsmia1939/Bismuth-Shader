@@ -8,7 +8,7 @@
 #include <IVideoDriver.h>
 #include "guiscalingfilter.h"
 #include "imagefilters.h"
-#include "normal_mipmaps.h"
+#include "material_mipmaps.h"
 #include "imagesource.h"
 #include "porting.h"
 #include "renderingengine.h"
@@ -21,7 +21,7 @@ struct TextureRequest
 {
 	video::E_TEXTURE_TYPE type = video::ETT_2D;
 	std::vector<std::string> images;
-	bool normal = false;
+	TextureData data = TextureData::COLOR;
 
 	void print(std::ostream &to) const {
 		if (images.size() == 1) {
@@ -35,7 +35,7 @@ struct TextureRequest
 	}
 
 	bool operator==(const TextureRequest &other) const {
-		return type == other.type && images == other.images && normal == other.normal;
+		return type == other.type && images == other.images && data == other.data;
 	}
 	bool operator!=(const TextureRequest &other) const {
 		return !(*this == other);
@@ -59,7 +59,7 @@ struct TextureInfo
 	video::ITexture *texture = nullptr;
 
 	std::set<std::string> sourceImages{};
-	bool normal = false;
+	TextureData data = TextureData::COLOR;
 };
 
 // Stores internal information about a texture image.
@@ -84,6 +84,7 @@ public:
 
 	video::ITexture* getTexture(const std::string &name, u32 *id = nullptr);
 	video::ITexture *getNormalTexture(const std::string &name, u32 *id = nullptr) override;
+	video::ITexture *getMaterialTexture(const std::string &name, u32 *id = nullptr) override;
 	bool hasNormalVariance(video::ITexture *texture) override
 	{
 		MutexAutoLock lock(m_textureinfo_cache_mutex);
@@ -158,7 +159,8 @@ private:
 	u32 processRequest(const TextureRequest &req);
 
 	// Generate standard texture
-	u32 generateTexture(const std::string &name, bool normal = false);
+	u32 generateTexture(const std::string &name, TextureData data = TextureData::COLOR);
+	video::ITexture *getDataTexture(const std::string &name, TextureData data, u32 *id);
 
 	// Generate array texture
 	u32 generateArrayTexture(const std::vector<std::string> &names);
@@ -320,7 +322,7 @@ u32 TextureSource::processRequest(const TextureRequest &req)
 {
 	if (req.type == video::ETT_2D) {
 		assert(req.images.size() == 1);
-		return generateTexture(req.images[0],req.normal);
+		return generateTexture(req.images[0], req.data);
 	}
 
 	if (req.type == video::ETT_2D_ARRAY) {
@@ -390,7 +392,14 @@ u32 TextureSource::generateArrayTexture(const std::vector<std::string> &images)
 	return id;
 }
 
-u32 TextureSource::generateTexture(const std::string &name, bool normal)
+static std::string textureCacheKey(const std::string &name, TextureData data)
+{
+	if (data == TextureData::NORMAL) return "__material_normal:" + name;
+	if (data == TextureData::ORM) return "__material_orm:" + name;
+	return name;
+}
+
+u32 TextureSource::generateTexture(const std::string &name, TextureData data)
 {
 	// Empty name means texture 0
 	if (name.empty()) {
@@ -398,7 +407,7 @@ u32 TextureSource::generateTexture(const std::string &name, bool normal)
 		return 0;
 	}
 
-	const std::string key = normal ? "__material_normal:"+name : name;
+	const std::string key = textureCacheKey(name, data);
 	{ // See if texture already exists
 		MutexAutoLock lock(m_textureinfo_cache_mutex);
 		auto n = m_name_to_id.find(key);
@@ -420,13 +429,15 @@ u32 TextureSource::generateTexture(const std::string &name, bool normal)
 
 	if (img) {
 		// Create texture from resulting image
-		tex = normal ? normal_mipmaps::create(*driver,key.c_str(),*img) : driver->addTexture(key.c_str(), img);
-		variance = normal && tex && normal_mipmaps::upload(*img,*tex);
-		if (variance) {
-			infostream << "Material normal mipmaps: " << name << " size="
+		const bool material = data != TextureData::COLOR;
+		tex = material ? material_mipmaps::create(*driver, key.c_str(), *img) : driver->addTexture(key.c_str(), img);
+		const bool prepared = material && tex && material_mipmaps::upload(*img, *tex, data);
+		variance = prepared && data == TextureData::NORMAL;
+		if (prepared) {
+			infostream << "Material " << (variance ? "normal" : "ORM") << " mipmaps: " << name << " size="
 				<< tex->getSize().Width << "x" << tex->getSize().Height << std::endl;
 		}
-		if (!normal) guiScalingCache(io::path(name.c_str()), driver, img);
+		if (!material) guiScalingCache(io::path(name.c_str()), driver, img);
 		img->drop();
 	}
 	if (!tex) {
@@ -440,7 +451,7 @@ u32 TextureSource::generateTexture(const std::string &name, bool normal)
 
 	const u32 id = m_textureinfo_cache.size();
 	TextureInfo ti{video::ETT_2D, name, {name}, tex, std::move(source_image_names)};
-	ti.normal = normal;
+	ti.data = data;
 	if (variance) m_normal_variance.insert(tex);
 	m_textureinfo_cache.emplace_back(std::move(ti));
 	m_name_to_id[key] = id;
@@ -483,8 +494,18 @@ video::ITexture* TextureSource::getTexture(const std::string &name, u32 *id)
 
 video::ITexture *TextureSource::getNormalTexture(const std::string &name, u32 *id)
 {
+	return getDataTexture(name, TextureData::NORMAL, id);
+}
+
+video::ITexture *TextureSource::getMaterialTexture(const std::string &name, u32 *id)
+{
+	return getDataTexture(name, TextureData::ORM, id);
+}
+
+video::ITexture *TextureSource::getDataTexture(const std::string &name, TextureData data, u32 *id)
+{
 	if (name.empty()) { if (id) *id = 0; return nullptr; }
-	const std::string key = "__material_normal:"+name;
+	const std::string key = textureCacheKey(name, data);
 	u32 actual_id;
 	{
 		MutexAutoLock lock(m_textureinfo_cache_mutex);
@@ -495,7 +516,7 @@ video::ITexture *TextureSource::getNormalTexture(const std::string &name, u32 *i
 			return m_textureinfo_cache[actual_id].texture;
 		}
 	}
-	actual_id = processRequestQueued({video::ETT_2D,{name},true});
+	actual_id = processRequestQueued({video::ETT_2D, {name}, data});
 	if (id) *id = actual_id;
 	return getTexture(actual_id);
 }
@@ -647,13 +668,14 @@ void TextureSource::rebuildTexture(video::IVideoDriver *driver, TextureInfo &ti)
 	video::ITexture *t = nullptr, *t_old = ti.texture;
 	if (!img) {
 		// new texture becomes null
-	} else if (ti.normal) {
+	} else if (ti.data != TextureData::COLOR) {
 		if (t_old && t_old->getColorFormat() == video::ECF_A8R8G8B8 &&
 				t_old->getOriginalSize() == img->getDimension())
 			std::swap(t,t_old);
 		else
-			t = normal_mipmaps::create(*driver,("__material_normal:"+ti.name).c_str(),*img);
-		if (t && normal_mipmaps::upload(*img,*t)) m_normal_variance.insert(t);
+			t = material_mipmaps::create(*driver, textureCacheKey(ti.name, ti.data).c_str(), *img);
+		if (t && material_mipmaps::upload(*img, *t, ti.data) && ti.data == TextureData::NORMAL)
+			m_normal_variance.insert(t);
 		else m_normal_variance.erase(t);
 	} else if (t_old && t_old->getColorFormat() == img->getColorFormat() && t_old->getSize() == img->getDimension()) {
 		// can replace texture in-place
@@ -671,7 +693,7 @@ void TextureSource::rebuildTexture(video::IVideoDriver *driver, TextureInfo &ti)
 		// create new one
 		t = driver->addTexture(ti.name.c_str(), img);
 	}
-	if (img && !ti.normal)
+	if (img && ti.data == TextureData::COLOR)
 		guiScalingCache(io::path(ti.name.c_str()), driver, img);
 
 	// Replace texture info

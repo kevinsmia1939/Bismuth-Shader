@@ -68,6 +68,7 @@ __pycache__/
 /cache
 /textures/*
 !/textures/base/
+!/textures/bismuth-minetest-game/
 /screenshots
 /sounds
 /mods/*

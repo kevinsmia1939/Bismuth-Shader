@@ -1,0 +1,10 @@
+{
+  "source": "/tmp/bismuth-m5-minetest/source",
+  "source_map_sha256": "ab20ce8d5c8eb3ebc57bac088643932ded66162d764d9663cc6eb076638920c8",
+  "prepared_map_sha256": "d5a67b5302a195473de0a24c91c8e8bcec55397afcbdd69022e9f5f4e33db5d4",
+  "engine_revision": "c2aa1c96023c51f053a88fb11f6e817524c1be26",
+  "engine_binary_sha256": "f63267f6f043de4eddcb18430f03798ea10339ea27ff904af6d5d3d6210ffe49",
+  "game": "minetest",
+  "game_revision": "9e895af6e9feb98332fa1a778001442f5669bc20",
+  "cpu": "AMD Ryzen 5 4600H with Radeon Graphics"
+}

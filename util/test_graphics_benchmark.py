@@ -5,7 +5,7 @@ import csv
 import json
 from pathlib import Path
 import tempfile
-from benchmark_graphics import summarize
+from benchmark_graphics import summarize, copy_world, world_game
 
 
 def run():
@@ -48,6 +48,18 @@ def run():
         except AssertionError as error: assert 'dimensions' in str(error)
         else: raise AssertionError('Actual render dimensions must match the declared resolution')
         print('PASS: excludes warmup/spanning frames; duration-weighted FPS and percentiles; camera/dimension gates')
+
+        for game in ('minetest','voxelibre'):
+            source=Path(directory)/(game+'-source');source.mkdir()
+            (source/'world.mt').write_text(f'gameid = {game}\nload_mod_old_fixture = true\nworld_name = original\n')
+            (source/'map.sqlite').write_bytes(b'preserve these map bytes')
+            target=Path(directory)/(game+'-copy')
+            copy_world(source,target)
+            assert world_game(target)==game, 'Copying must never convert a world to a different game'
+            assert (target/'map.sqlite').read_bytes()==(source/'map.sqlite').read_bytes()
+            assert 'load_mod_old_fixture' not in (target/'world.mt').read_text()
+            assert (target/'worldmods/graphics_test_game/init.lua').is_file()
+        print('PASS: native copies preserve Minetest Game/legacy game identity and terrain bytes')
 
 
 if __name__=='__main__': run()

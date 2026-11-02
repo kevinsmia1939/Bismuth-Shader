@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare fixed VoxeLibre scenes and measure whole-client frame delivery, without images/input."""
+"""Prepare native Minetest Game scenes and measure whole-client frames; legacy VoxeLibre is supported."""
 # SPDX-License-Identifier: LGPL-2.1-or-later
 import argparse
 import csv
@@ -66,19 +66,31 @@ def revision(path):
     return result.stdout.strip() if result.returncode==0 else None
 
 
+def world_game(world):
+    match=re.search(r'^gameid\s*=\s*(\S+)\s*$',(world/'world.mt').read_text(),re.M)
+    assert match and match[1] in ('minetest','voxelibre'), 'Expected Minetest Game or a legacy VoxeLibre world'
+    return match[1]
+
+
+def copy_game_adapter(mods):
+    shutil.copytree(ROOT/'util/graphics_test_game',mods/'graphics_test_game')
+
+
 def copy_world(source,destination):
-    assert (source/'map.sqlite').is_file() and (source/'world.mt').is_file(), 'Expected a stopped SQLite VoxeLibre world'
+    assert (source/'map.sqlite').is_file() and (source/'world.mt').is_file(), 'Expected a stopped native SQLite world'
+    game=world_game(source)
     shutil.copytree(source,destination,ignore=shutil.ignore_patterns('worldmods','graphics-client-ready'))
     mods=destination/'worldmods';mods.mkdir()
     shutil.copytree(ROOT/'util/graphics_benchmark',mods/'graphics_benchmark')
+    copy_game_adapter(mods)
     settings=[line for line in (destination/'world.mt').read_text().splitlines()
               if not line.startswith(('load_mod_','gameid'))]
-    (destination/'world.mt').write_text('\n'.join(settings)+'\ngameid = voxelibre\nload_mod_graphics_benchmark = true\n')
+    (destination/'world.mt').write_text('\n'.join(settings)+f'\ngameid = {game}\nload_mod_graphics_benchmark = true\nload_mod_graphics_test_game = true\n')
 
 
 def launch(world,config,log_path,timeout):
     command=[str(ROOT/'bin/luanti'),'--config',str(config),'--go','--world',str(world),
-             '--gameid','voxelibre','--name','GraphicsBench','--info']
+             '--gameid',world_game(world),'--name','GraphicsBench','--info']
     start=time.monotonic()
     with log_path.open('w') as output:
         process=subprocess.Popen(command,stdout=output,stderr=subprocess.STDOUT)
@@ -152,6 +164,7 @@ def prepare(args):
         shutil.rmtree(world/'worldmods')
         (world/'worldmods').mkdir()
         shutil.copytree(ROOT/'util/graphics_benchmark',world/'worldmods/graphics_benchmark')
+        copy_game_adapter(world/'worldmods')
         if (output/'prepare.log').exists(): shutil.copy2(output/'prepare.log',output/'prepare-previous.log')
     else:
         assert not world.exists(), f'Prepared world already exists: {world}'
@@ -171,7 +184,8 @@ graphics_benchmark_prepare = true
     shutil.copy2(world/'graphics-scenes.json',output/'scenes.json')
     (output/'source.json').write_text(json.dumps({'source':str(source),'source_map_sha256':before,
         'prepared_map_sha256':digest(world/'map.sqlite'),'engine_revision':revision(ROOT),
-        'engine_binary_sha256':digest(ROOT/'bin/luanti'),'game_revision':revision(ROOT/'games/voxelibre'),
+        'engine_binary_sha256':digest(ROOT/'bin/luanti'),
+        'game':world_game(world),'game_revision':revision(ROOT/'games'/('minetest_game' if world_game(world)=='minetest' else 'voxelibre')),
         'cpu':next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines()
                     if line.startswith('model name')),None)},indent=2)+'\n')
     print(f'Prepared fixed scenes in {output}',flush=True)
@@ -188,6 +202,8 @@ def run(args):
     shader_hash=shader.hexdigest()
     profile_hashes={name:digest(ROOT/'misc'/file) for name,file in PROFILES.items()}
     fixture_hash=digest(ROOT/'util/graphics_benchmark/init.lua')
+    adapter_hash=digest(ROOT/'util/graphics_test_game/init.lua')
+    game=world_game(prepared)
     records=[]
     for repetition in range(args.repeats):
         profiles=args.profiles if repetition%2==0 else list(reversed(args.profiles))
@@ -199,6 +215,7 @@ def run(args):
                 assert digest(directory/'client.conf')==saved['config_sha256'], 'Saved settings changed'
                 assert saved['binary_sha256']==binary and saved['shader_sha256']==shader_hash, 'Resume source mismatch'
                 assert saved['fixture_sha256']==fixture_hash and saved['profile_sha256']==profile_hashes[profile], 'Resume fixture/profile mismatch'
+                assert saved.get('game_adapter_sha256')==adapter_hash, 'Resume game adapter mismatch'
                 assert saved.get('overrides',[])==args.set and saved.get('scenes')==args.scenes, 'Resume selection mismatch'
                 if not args.scenes:
                     assert saved['scene_manifest_sha256']==digest(prepared/'graphics-scenes.json'), 'Resume scene mismatch'
@@ -221,22 +238,28 @@ def run(args):
                 f'\nbenchmark_frame_log = {frames}\ngraphics_benchmark_warmup = {args.warmup}\n'
                 f'graphics_benchmark_duration = {args.duration}\n'+
                 ''.join(setting+'\n' for setting in args.set))
+            shutil.copy2(config,directory/'launch.conf')
+            launch_hash=digest(config)
             print(f'Running {profile}, repeat {repetition+1}',flush=True)
             assert digest(ROOT/'misc'/PROFILES[profile])==profile_hashes[profile], 'Profile changed during measurement'
             gpu_before=gpu_state()
             log=launch(world,config,directory/'client.log',args.timeout)
             assert digest(ROOT/'bin/luanti')==binary, 'Engine binary changed during measurement'
+            assert digest(directory/'launch.conf')==launch_hash, 'Launch settings changed during measurement'
             assert digest(ROOT/'misc'/PROFILES[profile])==profile_hashes[profile], 'Profile changed during measurement'
             result=summarize(log,frames,args.duration,args.scenes or ('forest','sunset_river','glowing_cave','underwater'))
             record={'profile':profile,'repeat':repetition+1,'config_sha256':digest(config),
+                    'launch_config_sha256':launch_hash,
                     'profile_sha256':profile_hashes[profile],
                     'scene_manifest_sha256':digest(world/'graphics-scenes.json'),
                     'fixture_sha256':fixture_hash,
+                    'game':game,'game_adapter_sha256':adapter_hash,
                     'overrides':args.set,'scenes':args.scenes,
                     'binary_sha256':binary,'shader_sha256':shader_hash,'results':result,
                     'gpu_before':gpu_before,'gpu_after':gpu_state(),
                     'driver_environment':{key:os.environ.get(key) for key in ('DISPLAY','WAYLAND_DISPLAY',
-                        'SDL_VIDEODRIVER','LIBGL_ALWAYS_SOFTWARE','__NV_PRIME_RENDER_OFFLOAD','__GL_SYNC_TO_VBLANK')}}
+                        'SDL_VIDEODRIVER','LIBGL_ALWAYS_SOFTWARE','__NV_PRIME_RENDER_OFFLOAD','__GL_SYNC_TO_VBLANK',
+                        '__GL_SHADER_DISK_CACHE','__GL_SHADER_DISK_CACHE_PATH')}}
             (directory/'result.json').write_text(json.dumps(record,indent=2)+'\n')
             records.append(record)
             print(json.dumps(record),flush=True)
@@ -248,6 +271,7 @@ def run(args):
         final_shader.update(str(path.relative_to(ROOT)).encode()+b'\0'+path.read_bytes())
     assert final_shader.hexdigest()==shader_hash, 'Shaders changed during measurement'
     assert digest(ROOT/'util/graphics_benchmark/init.lua')==fixture_hash, 'Fixture changed during measurement'
+    assert digest(ROOT/'util/graphics_test_game/init.lua')==adapter_hash, 'Game adapter changed during measurement'
     (output/'results.json').write_text(json.dumps(records,indent=2)+'\n')
 
 

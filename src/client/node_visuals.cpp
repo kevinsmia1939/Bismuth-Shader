@@ -183,7 +183,8 @@ static void fillTileAttribs(TileLayer *layer, TileAttribContext context,
 			if (name.empty())
 				return;
 			int frame_length;
-			auto maps = createAnimationFrames(tsrc, name, tiledef.animation, frame_length, false, normal);
+			auto maps = createAnimationFrames(tsrc, name, tiledef.animation, frame_length, false,
+				normal ? TextureData::NORMAL : TextureData::ORM);
 			if (maps.empty())
 				return;
 			if (!normal)

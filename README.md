@@ -32,10 +32,15 @@ The project follows these milestones:
 | 1. Baseline and budget | Repeatable forest, sunset river, glowing cave and underwater scenes | Baseline recorded |
 | 2. Sunlight and atmosphere | Stable soft shadows, darker interiors, smooth daylight and restrained fog/light shafts | Implemented and checked in the reference scenes |
 | 3. Water appearance | Reflections that blend into fallback, convincing refraction and smooth shorelines/entry/exit | Implemented and checked in the reference scenes |
-| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; lighting cost measured |
+| 4. Colored lighting and indirect light | Responsive lamps, wall occlusion and subtle local color bounce | Implemented; smoother ground-light falloff is a milestone 6 follow-up |
 | 5. Material response | Matte ordinary surfaces, optional authored maps, restrained highlights and stable distant textures | Implemented and checked in Minetest Game; material cost measured |
-| 6. Combined-image stability | Stable TAA, exposure and bloom during movement, animation, resizing and water transitions | Effects present; combined audit pending |
+| 6. Lighting, foliage and image stability | Smooth lamp falloff, translucent grass/leaves, restrained sand/snow sparkle and stable TAA/exposure/bloom | New appearance work and combined audit pending |
 | 7. Usable preset | A measured balance of appearance, performance and a straightforward fallback | Candidate presets available; final budget pending |
+
+[Milestone 6](doc/developing/graphics-milestone-6.md) starts with smoother ground
+lighting around torches, mese lamps, glowstone and other emitters. It then adds
+light transmission through grass and leaves, subtle sand/snow sparkle, and the
+combined-image audit. Unlit caves must remain dark throughout these changes.
 
 The performance target is **1080p at 60 FPS on a GTX 1650 Ti**, subject to
 profiling. The historical VoxeLibre Milestone 1 balanced baseline achieved about 41 FPS in

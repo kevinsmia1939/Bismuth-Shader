@@ -1,13 +1,27 @@
 # Graphics goal and remaining work
 
-This is the historical feature inventory from the earlier open-ended graphics
-goal. The current target is a semi-realistic preset.
+The current target is a semi-realistic preset. The feature inventory later in
+this document preserves the earlier open-ended graphics goal.
 [Milestones 2–4](graphics-milestones-2-4.md) are implemented and checked in the
 reference scenes, following the [Milestone 1 baseline](graphics-baseline/README.md).
 Material response is implemented and checked in
-[Milestone 5](graphics-milestone-5.md). Combined-image stability and final preset
-delivery remain milestones 6–7. Items in the remaining-work column below are not additional
-requirements for the completed bounded milestones.
+[Milestone 5](graphics-milestone-5.md).
+
+[Milestone 6](graphics-milestone-6.md) now includes these pending additions, in
+implementation order, followed by the combined-image stability audit:
+
+| Stage | Concrete scope | Acceptance |
+| --- | --- | --- |
+| 6A. Smooth local-light falloff | Correct the abrupt ground-brightness drop around torches, mese lamps, glowstone and other emitters; check placed and held lights | Smooth distance falloff across block boundaries, restrained brightness beside the source, preserved wall occlusion and cave darkness |
+| 6B. Translucent foliage | Thin-surface light transmission for grass and leaves, with ordinary textures and optional authored control | Soft backlighting, preserved cutout silhouettes, stable moving foliage and no glow without incident light |
+| 6C. Sand and snow sparkle | Sparse, restrained grain highlights driven by incident light and view direction | Distinct sand/snow response, stable world-space detail, filtered distant glints and no sparkle in unlit areas |
+| 6D. Combined-image stability | Tune TAA, exposure, tone mapping and mild bloom; check movement, animation, resizing and water transitions | No persistent trails, exposure flashes or history smearing; previous lighting, water and darkness checks still pass |
+
+All four stages remain pending. Earlier milestone reports retain their original
+scope and evidence; the new falloff and foliage/sparkle requirements are not
+claimed complete by those reports. Final preset delivery and the complete
+performance budget remain milestone 7. Items in the historical remaining-work
+column below are not additional requirements for the completed bounded milestones.
 
 Minetest Game is now the primary integration target. The earlier baseline and
 milestones 2–4 reports describe historical VoxeLibre terrain. Milestone 5 uses
